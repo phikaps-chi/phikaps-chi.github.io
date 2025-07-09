@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Phi Kappa Sigma Alpha Mu Internal Website</title>
+
+  <!-- PWA manifest -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+    #appFrame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+    #auth-overlay {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 10;
+    }
+    #auth-overlay button {
+      padding: 12px 24px;
+      font-size: 1rem;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background: #007bff;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <!-- Apps Script iframe -->
+  <iframe id="appFrame" src="about:blank" allowfullscreen></iframe>
+
+  <!-- Sign-in overlay -->
+  <div id="auth-overlay">
+    <p style="margin-bottom:16px;">Your session isn’t active. Please sign in:</p>
+    <button id="reauth-btn">Sign In with Google</button>
+  </div>
+
+  <!-- 1) Load GSI library -->
+  <script
+    src="https://accounts.google.com/gsi/client"
+    async defer
+    onload="initGSI()">
+  </script>
+
+  <script>
+    // 2) Constants & DOM refs
+    const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxB-HmXXkHQ-1hbl0ij6RdCrR4ajrK9rUrx5vC-Is8e/exec';
+    const overlay     = document.getElementById('auth-overlay');
+    const btn         = document.getElementById('reauth-btn');
+    const iframe      = document.getElementById('appFrame');
+
+    // 3) Called when library has loaded
+    function initGSI() {
+      google.accounts.id.initialize({
+        client_id: '598065229000-t98hc486hi7aek8km359vho06i299828.apps.googleusercontent.com',
+        ux_mode: 'popup',
+        callback: handleCredentialResponse
+      });
+
+      // Prompt immediately, so callback fires even if FedCM fails silently
+      google.accounts.id.prompt();
+
+      // Also allow manual re-prompt via button
+      btn.addEventListener('click', () => {
+        google.accounts.id.prompt();
+      });
+    }
+
+    // 4) Once user signs in, this callback runs
+    function handleCredentialResponse(response) {
+      // Hide overlay
+      overlay.style.display = 'none';
+      // Load your Apps Script, passing the ID token for server-side verification
+      iframe.src = `${WEB_APP_URL}?id_token=${encodeURIComponent(response.credential)}`;
+    }
+  </script>
+</body>
+</html>
