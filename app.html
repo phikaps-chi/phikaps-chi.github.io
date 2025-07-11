@@ -37,9 +37,11 @@
             position: absolute;
             top: 0;
             left: 0;
+            display: none; /* Start hidden, show when content is ready */
         }
 
-        #auth-overlay {
+        /* --- Auth Overlay --- */
+        #auth-overlay, #unauthorized-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
             background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9)), url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Phi_Kappa_Sigma_Coat_of_Arms.svg/1024px-Phi_Kappa_Sigma_Coat_of_Arms.svg.png') no-repeat center center;
@@ -50,12 +52,19 @@
             justify-content: center;
             flex-direction: column;
             text-align: center;
-            z-index: 10;
+            z-index: 20;
             padding: 20px;
             box-sizing: border-box;
         }
 
-        #auth-content {
+        /* Make auth-overlay specifically for Google Sign-In */
+        #auth-overlay { display: none; } /* Initially hidden */
+
+        /* Make unauthorized-overlay specifically for denied access */
+        #unauthorized-overlay { display: none; } /* Initially hidden */
+
+
+        #auth-content, #unauthorized-content {
             background: rgba(20, 20, 20, 0.85);
             padding: 40px;
             border-radius: 12px;
@@ -63,7 +72,7 @@
             max-width: 400px;
         }
         
-        #auth-content h1 {
+        #auth-content h1, #unauthorized-content h1 {
             font-family: 'Playfair Display', serif;
             color: var(--primary-color);
             margin-top: 0;
@@ -71,7 +80,7 @@
             font-size: 2.5rem;
         }
 
-        #auth-content p {
+        #auth-content p, #unauthorized-content p {
             margin-bottom: 24px;
             font-size: 1.1rem;
             line-height: 1.6;
@@ -80,6 +89,40 @@
 
         #reauth-btn {
             /* The Google button will be rendered here */
+        }
+
+        /* --- Loading Overlay --- */
+        #loading-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--dark-gray); /* Dark background matching body */
+            color: var(--primary-color); /* Gold text/spinner */
+            display: flex; /* Start visible */
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            z-index: 15;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid var(--primary-color);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        #loading-overlay p {
+            font-size: 1.2em;
+            color: var(--light-gray);
         }
     </style>
 </head>
@@ -95,38 +138,199 @@
         </div>
     </div>
 
-    <script src="https://accounts.google.com/gsi/client" async defer onload="initGSI()"></script>
+    <div id="unauthorized-overlay">
+        <div id="unauthorized-content">
+            <h1>Access Denied</h1>
+            <p>You are signed in, but your Google account is not authorized to access this application.</p>
+            <p>Please ensure you are using an authorized Google account.</p>
+            <p style="margin-top: 30px; font-size: 0.9em; color: #CCCCCC;">
+                If you believe this is an error, please contact <a href="mailto:phikaps-chi@mit.edu" style="color: var(--primary-color);">phikaps-chi@mit.edu</a>.
+            </p>
+        </div>
+    </div>
+
+    <div id="loading-overlay">
+        <div class="spinner"></div>
+        <p>Loading application...</p>
+    </div>
+
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script>
         const CLIENT_ID = '598065229000-t98hc486hi7aek8km359vho06i299828.apps.googleusercontent.com';
-        const WEB_APP   = 'https://script.google.com/macros/s/AKfycbwE8OcJnnbR2yaLQeN8l59EUMhTTx6j3csv58rxNQyymVuD7Esc0zamjjPvxxNN0iOyHA/exec';
+        const WEB_APP   = 'https://script.google.com/macros/s/AKfycbw6WE7vH78xFbtRwBnyw5Jld9o8ldJsjCFkBDgM9UkiMzJptb0bvXzOer6UgCncXoEJug/exec';
+        const SESSION_KEY = 'PHIKAPS_SESSION'; // Key for localStorage
         
-        const iframe    = document.getElementById('appFrame');
-        const overlay   = document.getElementById('auth-overlay');
+        const iframe         = document.getElementById('appFrame');
+        const authOverlay    = document.getElementById('auth-overlay');
+        const unauthorizedOverlay = document.getElementById('unauthorized-overlay');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const reauthBtn      = document.getElementById('reauth-btn');
 
+        let gsiInitialized = false;
+
+        // Use localStorage instead of cookies
+        function getStoredSession() {
+            return localStorage.getItem(SESSION_KEY);
+        }
+
+        function storeSession(sessionId) {
+            localStorage.setItem(SESSION_KEY, sessionId);
+            console.log('Session stored in localStorage:', sessionId);
+        }
+
+        function clearSession() {
+            localStorage.removeItem(SESSION_KEY);
+            console.log('Session cleared from localStorage');
+        }
+
+        function showAuthOverlay() {
+            console.log("Showing authentication overlay (GSI).");
+            hideAllOverlays();
+            authOverlay.style.display = 'flex';
+            if (!gsiInitialized) {
+                initGSI();
+                gsiInitialized = true;
+            } else {
+                google.accounts.id.prompt((notification) => {
+                    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                        console.log('Google One Tap prompt was not displayed or was skipped.');
+                    }
+                });
+            }
+        }
+
+        function showUnauthorizedOverlay() {
+            console.log("Showing unauthorized access overlay.");
+            hideAllOverlays();
+            unauthorizedOverlay.style.display = 'flex';
+        }
+
+        function showLoadingOverlay() {
+            console.log("Showing loading overlay.");
+            hideAllOverlays();
+            loadingOverlay.style.display = 'flex';
+        }
+
+        function hideAllOverlays() {
+            console.log("Hiding all overlays. Preparing app frame.");
+            loadingOverlay.style.opacity = '0';
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+                loadingOverlay.style.opacity = '1';
+            }, 500); 
+
+            authOverlay.style.display = 'none';
+            unauthorizedOverlay.style.display = 'none';
+            iframe.style.display = 'none';
+        }
+
+        function loadApp(idToken = null, sessionId = null) {
+            showLoadingOverlay();
+            let url = WEB_APP;
+            if (idToken) {
+                url += `?id_token=${encodeURIComponent(idToken)}`;
+            } else if (sessionId) {
+                url += `?session_id=${encodeURIComponent(sessionId)}`;
+            } else {
+                showAuthOverlay();
+                return;
+            }
+            iframe.src = url;
+        }
+
+        // --- Google Sign-In Initialization ---
         function initGSI() {
             google.accounts.id.initialize({
                 client_id: CLIENT_ID,
-                callback: handleCredentialResponse
+                callback: handleCredentialResponse,
+                auto_select: true
             });
 
             google.accounts.id.renderButton(
-                document.getElementById('reauth-btn'),
+                reauthBtn,
                 { theme: "filled_black", size: "large", text: "continue_with", shape: "pill", width: "300" }
             );
 
             google.accounts.id.prompt((notification) => {
                 if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
                     console.log('Google One Tap prompt was not displayed or was skipped.');
+                } else if (notification.isDisplayed()) {
+                    console.log('Google One Tap prompt is displayed.');
                 }
             });
         }
 
         function handleCredentialResponse(resp) {
-            console.log("Credential response received.");
-            overlay.style.display = 'none';
-            iframe.src = `${WEB_APP}?id_token=${encodeURIComponent(resp.credential)}`;
+            console.log("Credential response received from GSI. Loading app with ID Token.");
+            loadApp(resp.credential);
         }
+
+        // --- Event Listeners ---
+
+        // Listen for messages from the Apps Script iframe
+        window.addEventListener('message', function(event) {
+            // For production, verify the origin:
+            // if (!event.origin.includes('googleusercontent.com')) return;
+
+            // Handle string messages (legacy)
+            if (typeof event.data === 'string') {
+                if (event.data === 'AUTH_REQUIRED') {
+                    console.log('Apps Script sent AUTH_REQUIRED signal. Re-showing authentication overlay.');
+                    clearSession(); // Clear any invalid session
+                    showAuthOverlay();
+                } else if (event.data === 'UNAUTHORIZED_USER') {
+                    console.log('Apps Script sent UNAUTHORIZED_USER signal. Showing unauthorized overlay.');
+                    clearSession(); // Clear session for unauthorized user
+                    showUnauthorizedOverlay();
+                }
+            } 
+            // Handle object messages (new format with session ID)
+            else if (typeof event.data === 'object' && event.data.type) {
+                if (event.data.type === 'AUTH_SUCCESS') {
+                    console.log('Apps Script sent AUTH_SUCCESS signal with session ID.');
+                    
+                    // Store the session ID if provided
+                    if (event.data.sessionId) {
+                        storeSession(event.data.sessionId);
+                    }
+                    
+                    hideAllOverlays();
+                    iframe.style.display = 'block';
+                } else if (event.data.type === 'SESSION_EXPIRED') {
+                    console.log('Session expired. Need to re-authenticate.');
+                    clearSession(); // Clear the expired session
+                    
+                    // Show a brief notification before showing auth overlay
+                    const loadingText = document.querySelector('#loading-overlay p');
+                    loadingText.textContent = 'Session expired. Please sign in again...';
+                    showLoadingOverlay();
+                    
+                    setTimeout(() => {
+                        showAuthOverlay();
+                    }, 1500); // Show message for 1.5 seconds
+                }
+            }
+        });
+
+        // Initial check on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            // Start by showing loading screen
+            showLoadingOverlay();
+
+            const existingSessionId = getStoredSession();
+            if (existingSessionId) {
+                console.log("Found existing session in localStorage. Attempting direct app load.");
+                loadApp(null, existingSessionId);
+            } else {
+                console.log("No active session found. Initializing authentication flow.");
+                showAuthOverlay();
+            }
+        });
+
+        // Optional: Add session cleanup on window unload (if you want sessions to expire on close)
+        // window.addEventListener('beforeunload', () => {
+        //     clearSession();
+        // });
     </script>
-  
 </body>
 </html>
