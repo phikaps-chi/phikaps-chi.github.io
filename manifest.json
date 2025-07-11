@@ -1,11 +1,11 @@
 {
-    "name": "Phi Kappa Sigma Alpha Mu Internal Website",
+    "name": "Phi Kappa Sigma Alpha Mu Internal",
     "short_name": "PhiKapApp",
     "start_url": "./app.html",
     "scope": "./",
     "display": "standalone",
     "background_color": "#f8f8f8",
-    "theme_color": "#007bff",
+    "theme_color": "#ffd700",
     "icons": [
       {
         "src": "https://pks.org/images/pks-active-members.png",
