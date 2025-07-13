@@ -1,7 +1,7 @@
 {
     "name": "Phi Kappa Sigma Alpha Mu Internal",
     "short_name": "PhiKapApp",
-    "start_url": "./app.html",
+    "start_url": "./index.html",
     "scope": "./",
     "display": "standalone",
     "background_color": "#f8f8f8",
