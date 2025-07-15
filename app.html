@@ -198,37 +198,6 @@
         let iframeLoadState      = 'none';
         const DEBUG_MODE         = new URLSearchParams(window.location.search).get('debug') === '1';
 
-        // Import the functions you need from the SDKs you need
-        import { initializeApp } from "firebase/app";
-        import { getAnalytics } from "firebase/analytics";
-        // TODO: Add SDKs for Firebase products that you want to use
-        // https://firebase.google.com/docs/web/setup#available-libraries
-
-        const express = require('express');
-        const cors = require('cors');
-        const app = express();
-        const PORT = process.env.PORT || 3000;
-
-        app.use(cors());
-
-        let clients = [];
-
-        // SSE endpoint
-        app.get('/sse', (req, res) => {
-        res.set({
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive'
-        });
-        res.flushHeaders();
-
-        clients.push(res);
-
-        req.on('close', () => {
-            clients = clients.filter(client => client !== res);
-        });
-        });
-
         function debugLog(msg) {
             console.log(`[PKS Auth] ${msg}`);
             if (DEBUG_MODE) {
