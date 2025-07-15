@@ -8,4 +8,3 @@ services:
     envVars:
       - key: PORT
         value: 10000  # or leave blank; Render will assign a port via $PORT env
-        
