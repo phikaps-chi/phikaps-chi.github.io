@@ -30,15 +30,14 @@ app.get('/sse', (req, res) => {
   });
 });
 
-// --- Endpoint for Google Apps Script (or any source) to POST update events ---
-app.post('/sheet-update', (req, res) => {
-  const payload = req.body || {};
-  // Broadcast update to all clients
-  clients.forEach(client => {
-    client.write(`data: ${JSON.stringify(payload)}\n\n`);
+// --- GET endpoint for Google Apps Script to ping for update ---
+app.get('/rush-update', (req, res) => {
+    // No payload, just a refresh signal
+    clients.forEach(client => {
+      client.write(`data: {"refresh": true}\n\n`);
+    });
+    res.json({ ok: true, delivered: clients.length });
   });
-  res.json({ ok: true, delivered: clients.length });
-});
 
 // --- Health check ---
 app.get('/', (req, res) => {
