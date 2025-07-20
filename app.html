@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     
+    <!-- Fixed viewport meta tag with proper safe area support -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -25,6 +26,12 @@
             --light-gray: #f4f4f4;
             --dark-gray: #0a0a0a;
             --text-color: #ffffff;
+            
+            /* Safe area variables with fallbacks */
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-right: env(safe-area-inset-right, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-inset-left: env(safe-area-inset-left, 0px);
         }
 
         html, body {
@@ -36,6 +43,17 @@
             background-color: var(--dark-gray);
         }
 
+        /* Fix for the black area at bottom - ensure body fills viewport */
+        body {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+
         #appFrame {
             width: 100%;
             height: 100%;
@@ -44,12 +62,21 @@
             top: 0;
             left: 0;
             display: none; /* Start hidden, show when content is ready */
+            /* Ensure iframe respects safe areas */
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+            padding-left: var(--safe-area-inset-left);
+            padding-right: var(--safe-area-inset-right);
+            box-sizing: border-box;
         }
 
         /* --- Auth Overlay --- */
         #auth-overlay, #unauthorized-overlay {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0;
             background: linear-gradient(rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.9)), url('https://upload.wikimedia.org/wikipedia/commons/thumb/1/13/Phi_Kappa_Sigma_Coat_of_Arms.svg/1024px-Phi_Kappa_Sigma_Coat_of_Arms.svg.png') no-repeat center center;
             background-size: cover;
             color: var(--text-color);
@@ -61,6 +88,11 @@
             z-index: 20;
             padding: 20px;
             box-sizing: border-box;
+            /* Add safe area padding to overlays */
+            padding-top: calc(20px + var(--safe-area-inset-top));
+            padding-bottom: calc(20px + var(--safe-area-inset-bottom));
+            padding-left: calc(20px + var(--safe-area-inset-left));
+            padding-right: calc(20px + var(--safe-area-inset-right));
         }
 
         #auth-overlay { display: none; }
@@ -72,6 +104,8 @@
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             max-width: 400px;
+            width: 100%;
+            box-sizing: border-box;
         }
         
         #auth-content h1, #unauthorized-content h1 {
@@ -110,7 +144,10 @@
         /* --- Loading Overlay --- */
         #loading-overlay {
             position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
+            top: 0; 
+            left: 0; 
+            right: 0; 
+            bottom: 0;
             background-color: var(--dark-gray);
             color: var(--primary-color);
             display: flex;
@@ -119,6 +156,12 @@
             flex-direction: column;
             z-index: 15;
             transition: opacity 0.5s ease-out;
+            /* Add safe area padding */
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+            padding-left: var(--safe-area-inset-left);
+            padding-right: var(--safe-area-inset-right);
+            box-sizing: border-box;
         }
 
         .spinner {
@@ -147,6 +190,26 @@
             max-width: 300px;
             z-index: 100;
             display: none;
+            /* Ensure debug info stays above home indicator */
+            margin-bottom: var(--safe-area-inset-bottom);
+            margin-left: var(--safe-area-inset-left);
+        }
+        
+        /* Additional fixes for specific iPhone models */
+        @supports (padding: max(0px)) {
+            /* Ensure content doesn't go under notch/home indicator */
+            #appFrame {
+                padding-top: max(var(--safe-area-inset-top), 20px);
+                padding-bottom: max(var(--safe-area-inset-bottom), 20px);
+            }
+        }
+        
+        /* Fix for landscape orientation */
+        @media screen and (orientation: landscape) {
+            #appFrame {
+                padding-left: max(var(--safe-area-inset-left), 20px);
+                padding-right: max(var(--safe-area-inset-right), 20px);
+            }
         }
     </style>
 </head>
