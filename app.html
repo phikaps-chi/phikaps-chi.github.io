@@ -293,6 +293,7 @@
             localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, issued: Date.now() }));
             debugLog('ID token cached');
         }
+        function clearToken() { localStorage.removeItem(TOKEN_KEY); debugLog('Token cleared'); }
 
         function showAuthOverlay() {
             debugLog('Show auth overlay');
@@ -348,6 +349,7 @@
         function handleCredentialResponse(resp) {
             debugLog('GSI response');
             clearSession();
+            clearToken(); // Clear any existing token first
             storeToken(resp.credential);
             loadApp(resp.credential);
         }
@@ -355,12 +357,26 @@
         // --- Sign Out Function ---
         function signOut() {
             debugLog('Attempting sign out...');
+
+            // Get the token before clearing it, for revocation
+            const storedToken = getStoredToken();
+
             if (window.google?.accounts?.id) {
                 google.accounts.id.disableAutoSelect(); // Clear the Google Sign-In session
-                debugLog('Google AutoSelect disabled. Clearing local storage and reloading.');
+                debugLog('Google AutoSelect disabled.');
+
+                // Also revoke the Google session to force re-authentication
+                if (storedToken?.token) {
+                    google.accounts.id.revoke(storedToken.token, done => {
+                        debugLog('Google token revoked');
+                    });
+                }
             }
+
             clearSession(); // Clear your application's session
-            localStorage.removeItem(TOKEN_KEY); // Clear the stored ID token
+            clearToken(); // Clear the stored ID token
+
+            debugLog('Clearing local storage and reloading.');
             window.location.reload(); // Reload the page to reset the app state
         }
 
@@ -371,11 +387,11 @@
             debugLog(`Msg from iframe: ${JSON.stringify(event.data)}`);
             if (sessionCheckTimeout) { clearTimeout(sessionCheckTimeout); sessionCheckTimeout=null; }
             if (typeof event.data === 'string') {
-                if (event.data==='AUTH_REQUIRED') { clearSession(); iframeLoadState='auth-required'; showAuthOverlay(); }
-                if (event.data==='UNAUTHORIZED_USER') { clearSession(); showUnauthorizedOverlay(); }
+                if (event.data==='AUTH_REQUIRED') { clearSession(); clearToken(); iframeLoadState='auth-required'; showAuthOverlay(); }
+                if (event.data==='UNAUTHORIZED_USER') { clearSession(); clearToken(); showUnauthorizedOverlay(); }
             } else if (event.data?.type) {
                 if (event.data.type==='AUTH_SUCCESS') { storeSession(event.data.sessionId); showApp(); }
-                if (event.data.type==='SESSION_EXPIRED') { clearSession(); iframeLoadState='session-expired'; showLoadingOverlay('Session expired'); setTimeout(showAuthOverlay,1500); }
+                if (event.data.type==='SESSION_EXPIRED') { clearSession(); clearToken(); iframeLoadState='session-expired'; showLoadingOverlay('Session expired'); setTimeout(showAuthOverlay,1500); }
             }
         });
 
