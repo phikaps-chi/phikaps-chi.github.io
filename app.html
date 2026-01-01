@@ -56,17 +56,13 @@
 
         #appFrame {
             width: 100%;
-            height: 100%;
+            height: 100vh;
             border: none;
             position: absolute;
             top: 0;
             left: 0;
             display: none; /* Start hidden, show when content is ready */
-            /* Ensure iframe respects safe areas */
-            padding-top: var(--safe-area-inset-top);
-            padding-bottom: var(--safe-area-inset-bottom);
-            padding-left: var(--safe-area-inset-left);
-            padding-right: var(--safe-area-inset-right);
+            /* Ensure iframe respects safe areas - use insets to position, not padding */
             box-sizing: border-box;
         }
 
@@ -195,22 +191,7 @@
             margin-left: var(--safe-area-inset-left);
         }
         
-        /* Additional fixes for specific iPhone models */
-        @supports (padding: max(0px)) {
-            /* Ensure content doesn't go under notch/home indicator */
-            #appFrame {
-                padding-top: max(var(--safe-area-inset-top), 20px);
-                padding-bottom: max(var(--safe-area-inset-bottom), 20px);
-            }
-        }
-        
-        /* Fix for landscape orientation */
-        @media screen and (orientation: landscape) {
-            #appFrame {
-                padding-left: max(var(--safe-area-inset-left), 20px);
-                padding-right: max(var(--safe-area-inset-right), 20px);
-            }
-        }
+        /* Additional fixes for specific iPhone models - removed padding approach */
     </style>
 </head>
 <body>
