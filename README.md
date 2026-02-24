@@ -198,7 +198,7 @@ Two spreadsheets serve as the database:
 **Main spreadsheet** (`SPREADSHEET_ID`):
 - **Sigma** — member roster (email, name, position, status)
 - **Theta** — bylaws, meeting minutes, resources, welcome message
-- **Buttons** — custom dashboard button definitions
+- **CustomButtons** — custom dashboard button definitions
 - **RankedChoicePolls** — poll data (auto-created if missing)
 
 **Rush spreadsheet** (`RUSH_SPREADSHEET_ID`):
