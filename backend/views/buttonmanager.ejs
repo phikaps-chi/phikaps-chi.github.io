@@ -879,21 +879,11 @@
                         // Update existing button
                         buttonData.buttonId = editingButtonId;
 
-                        if (window.apiCallWithStrategy) {
-                            // Use IDEMPOTENT_UPDATE since updates can be safely retried
-                            result = await apiCallWithStrategy(
-                                'updateCustomButton',
-                                [buttonData, USER_EMAIL, SESSION_ID],
-                                'IDEMPOTENT_UPDATE'
-                            );
-                        } else {
-                            // Fallback to standard call
-                            result = await fetch('/api/buttons/update' + window.location.search, {
-                                method: 'PUT',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(buttonData)
-                            }).then(function(r) { return r.json(); });
-                        }
+                        result = await fetch('/api/buttons/update' + window.location.search, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(buttonData)
+                        }).then(function(r) { return r.json(); });
 
                         if (result.success) {
                             showStatus('✓ Button updated successfully!', 'success');
@@ -907,21 +897,11 @@
                         // Create new button - generate request ID for duplicate detection
                         buttonData.requestId = `btn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-                        if (window.apiCallWithStrategy) {
-                            // Use CREATE strategy to minimize duplicate risk
-                            result = await apiCallWithStrategy(
-                                'saveCustomButton',
-                                [buttonData, USER_EMAIL, SESSION_ID],
-                                'CREATE'
-                            );
-                        } else {
-                            // Fallback to standard call
-                            result = await fetch('/api/buttons/save' + window.location.search, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(buttonData)
-                            }).then(function(r) { return r.json(); });
-                        }
+                        result = await fetch('/api/buttons/save' + window.location.search, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(buttonData)
+                        }).then(function(r) { return r.json(); });
 
                         if (result.success) {
                             if (result.isDuplicate) {

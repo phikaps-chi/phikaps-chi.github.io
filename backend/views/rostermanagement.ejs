@@ -1356,33 +1356,14 @@
                 };
 
                 try {
-                    // Use the parent window's apiCallWithStrategy function if available
-                    // This gives us access to the retry logic from home.html
-                    let result;
-
-                    if (window.parent && window.parent.apiCallWithStrategy) {
-                        // We're in an iframe and have access to parent's retry logic
-                        result = await window.parent.apiCallWithStrategy(
-                            'saveRosterChangesSimple',
-                            [changesData],
-                            'CREATE'  // Use CREATE strategy since we're modifying data
-                        );
-                    } else if (window.apiCallWithStrategy) {
-                        // We're not in an iframe but have the function available (dynamically loaded)
-                        result = await apiCallWithStrategy(
-                            'saveRosterChangesSimple',
-                            [changesData],
-                            'CREATE'
-                        );
-                    } else {
-                        // Fallback to standard Google Apps Script call
-                        const fetchResp = await fetch('/api/roster/save' + window.location.search, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(changesData)
-                        });
-                        result = await fetchResp.json();
-                    }
+                    const _baseUrl = (typeof BASE_URL !== 'undefined') ? BASE_URL : '';
+                    const _sid = (typeof SESSION_ID !== 'undefined') ? SESSION_ID : new URLSearchParams(window.location.search).get('session_id') || '';
+                    const fetchResp = await fetch(_baseUrl + '/api/roster/save?session_id=' + encodeURIComponent(_sid), {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(changesData)
+                    });
+                    const result = await fetchResp.json();
 
                     showLoading(false);
                     saveOverlayBtn.disabled = false;
