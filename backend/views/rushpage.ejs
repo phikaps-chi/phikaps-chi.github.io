@@ -4302,7 +4302,7 @@
     var position = '<%- position %>';
     var BASE_URL = '<%- baseUrl %>';
     var isLocked = <%- (typeof isLocked !== 'undefined' && isLocked) ? 'true' : 'false' %>; // Rush page lock status
-    var SSE_URL = 'https://sse-server-4rzn.onrender.com'; // Replace with your actual SSE server URL
+    var SSE_URL = '<%= baseUrl %>';
     
     var searchTerm = '';
     var currentRushEvent = null;

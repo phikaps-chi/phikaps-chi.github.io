@@ -1175,7 +1175,7 @@
     if (!RANK_SESSION_ID && typeof SESSION_ID !== 'undefined') {
       RANK_SESSION_ID = SESSION_ID;
     }
-    var SSE_URL = 'https://sse-server-4rzn.onrender.com';
+    var SSE_URL = '<%= baseUrl %>';
     var eventSource = null;
     var reconnectTimeout = null;
     var reconnectAttempts = 0;
