@@ -73,7 +73,7 @@ function getWelcomeMessage(sigmaData, email, position) {
   if (position && position.includes('Pledge')) {
     return `Welcome Pledge ${lastName}!`;
   }
-  return `Welcome brother ${lastName}!`;
+  return `Welcome Brother ${lastName}!`;
 }
 
 module.exports = {
