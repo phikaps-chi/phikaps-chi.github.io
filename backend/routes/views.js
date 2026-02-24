@@ -136,7 +136,7 @@ router.get('/admindashboard', async (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.get('/rankchoice', (req, res) => {
-  const rushId = req.query.rushId || '';
+  const rushId = req.query.rushId || req.query.id || '';
   res.render('rankChoice', {
     email: req.user.email,
     name: req.user.name,
@@ -154,7 +154,7 @@ router.get('/rankchoice', (req, res) => {
 // ---------------------------------------------------------------------------
 
 router.get('/rushpage', async (req, res) => {
-  const rushId = req.query.rushId || '';
+  const rushId = req.query.rushId || req.query.id || '';
   if (!rushId) {
     return res.status(400).send('<p style="color:red;">No Rush Event ID provided.</p>');
   }

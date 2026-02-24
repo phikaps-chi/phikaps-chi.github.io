@@ -3,7 +3,7 @@ const { getParentSheet, getSheetsClient, clearSheetCache, cache } = require('./s
 const { fetchHtmlFromGCS, uploadHtmlToGCS, deleteFromGCS } = require('./gcs');
 const config = require('./config');
 
-const BUTTON_SHEET_NAME = 'Buttons';
+const BUTTON_SHEET_NAME = 'CustomButtons';
 
 /**
  * Mirrors ButtonManager.gs getCustomButtons().

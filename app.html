@@ -2,13 +2,16 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="PKS Alpha Mu Internal">
+
     <title>Phi Kappa Sigma Alpha Mu Internal</title>
-    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
-    <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: light)"> <link rel="preconnect" href="https://fonts.googleapis.com">
 
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#333333">
+    <meta name="theme-color" content="#ffd700">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,11 +19,15 @@
 
     <style>
         :root {
-            --primary-color: #ffd700; /* Gold */
-            --secondary-color: #000000; /* Black */
+            --primary-color: #ffd700;
+            --secondary-color: #000000;
             --light-gray: #f4f4f4;
             --dark-gray: #0a0a0a;
             --text-color: #ffffff;
+            --safe-area-inset-top: env(safe-area-inset-top, 0px);
+            --safe-area-inset-right: env(safe-area-inset-right, 0px);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+            --safe-area-inset-left: env(safe-area-inset-left, 0px);
         }
 
         html, body {
@@ -32,6 +39,16 @@
             background-color: var(--dark-gray);
         }
 
+        body {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+
         #appFrame {
             width: 100%;
             height: 100%;
@@ -39,10 +56,14 @@
             position: absolute;
             top: 0;
             left: 0;
-            display: none; /* Start hidden, show when content is ready */
+            display: none;
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+            padding-left: var(--safe-area-inset-left);
+            padding-right: var(--safe-area-inset-right);
+            box-sizing: border-box;
         }
 
-        /* --- Auth Overlay --- */
         #auth-overlay, #unauthorized-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -57,6 +78,10 @@
             z-index: 20;
             padding: 20px;
             box-sizing: border-box;
+            padding-top: calc(20px + var(--safe-area-inset-top));
+            padding-bottom: calc(20px + var(--safe-area-inset-bottom));
+            padding-left: calc(20px + var(--safe-area-inset-left));
+            padding-right: calc(20px + var(--safe-area-inset-right));
         }
 
         #auth-overlay { display: none; }
@@ -68,8 +93,10 @@
             border-radius: 12px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             max-width: 400px;
+            width: 100%;
+            box-sizing: border-box;
         }
-        
+
         #auth-content h1, #unauthorized-content h1 {
             font-family: 'Playfair Display', serif;
             color: var(--primary-color);
@@ -85,8 +112,6 @@
             color: var(--light-gray);
         }
 
-        #reauth-btn { /* GSI button container */ }
-
         .sign-out-button {
             background-color: var(--primary-color);
             color: var(--secondary-color);
@@ -100,10 +125,9 @@
         }
 
         .sign-out-button:hover {
-            background-color: #e6c200; /* Darker gold on hover */
+            background-color: #e6c200;
         }
 
-        /* --- Loading Overlay --- */
         #loading-overlay {
             position: absolute;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -115,6 +139,11 @@
             flex-direction: column;
             z-index: 15;
             transition: opacity 0.5s ease-out;
+            padding-top: var(--safe-area-inset-top);
+            padding-bottom: var(--safe-area-inset-bottom);
+            padding-left: var(--safe-area-inset-left);
+            padding-right: var(--safe-area-inset-right);
+            box-sizing: border-box;
         }
 
         .spinner {
@@ -143,6 +172,22 @@
             max-width: 300px;
             z-index: 100;
             display: none;
+            margin-bottom: var(--safe-area-inset-bottom);
+            margin-left: var(--safe-area-inset-left);
+        }
+
+        @supports (padding: max(0px)) {
+            #appFrame {
+                padding-top: max(var(--safe-area-inset-top), 20px);
+                padding-bottom: max(var(--safe-area-inset-bottom), 20px);
+            }
+        }
+
+        @media screen and (orientation: landscape) {
+            #appFrame {
+                padding-left: max(var(--safe-area-inset-left), 20px);
+                padding-right: max(var(--safe-area-inset-right), 20px);
+            }
         }
     </style>
 </head>
@@ -190,7 +235,7 @@
         const loadingOverlay     = document.getElementById('loading-overlay');
         const loadingText        = document.getElementById('loading-text');
         const reauthBtn          = document.getElementById('reauth-btn');
-        const signOutButton      = document.getElementById('sign-out-button'); // Get the sign-out button
+        const signOutButton      = document.getElementById('sign-out-button');
         const debugInfo          = document.getElementById('debug-info');
 
         let gsiInitialized       = false;
@@ -226,11 +271,12 @@
             localStorage.setItem(TOKEN_KEY, JSON.stringify({ token, issued: Date.now() }));
             debugLog('ID token cached');
         }
+        function clearToken() { localStorage.removeItem(TOKEN_KEY); debugLog('Token cleared'); }
 
         function showAuthOverlay() {
             debugLog('Show auth overlay');
             hideAllOverlays();
-            iframe.style.display = 'none'; // Ensure iframe is hidden during auth
+            iframe.style.display = 'none';
             authOverlay.style.display = 'flex';
             loadingText.textContent = 'Please sign in...';
             if (!gsiInitialized) {
@@ -281,34 +327,40 @@
         function handleCredentialResponse(resp) {
             debugLog('GSI response');
             clearSession();
+            clearToken();
             storeToken(resp.credential);
             loadApp(resp.credential);
         }
 
-        // --- Sign Out Function ---
         function signOut() {
             debugLog('Attempting sign out...');
+            const storedToken = getStoredToken();
             if (window.google?.accounts?.id) {
-                google.accounts.id.disableAutoSelect(); // Clear the Google Sign-In session
-                debugLog('Google AutoSelect disabled. Clearing local storage and reloading.');
+                google.accounts.id.disableAutoSelect();
+                debugLog('Google AutoSelect disabled.');
+                if (storedToken?.token) {
+                    google.accounts.id.revoke(storedToken.token, done => {
+                        debugLog('Google token revoked');
+                    });
+                }
             }
-            clearSession(); // Clear your application's session
-            localStorage.removeItem(TOKEN_KEY); // Clear the stored ID token
-            window.location.reload(); // Reload the page to reset the app state
+            clearSession();
+            clearToken();
+            debugLog('Clearing local storage and reloading.');
+            window.location.reload();
         }
 
-        // Attach the signOut function to the button
         signOutButton.addEventListener('click', signOut);
 
         window.addEventListener('message', (event) => {
             debugLog(`Msg from iframe: ${JSON.stringify(event.data)}`);
             if (sessionCheckTimeout) { clearTimeout(sessionCheckTimeout); sessionCheckTimeout=null; }
             if (typeof event.data === 'string') {
-                if (event.data==='AUTH_REQUIRED') { clearSession(); iframeLoadState='auth-required'; showAuthOverlay(); }
-                if (event.data==='UNAUTHORIZED_USER') { clearSession(); showUnauthorizedOverlay(); }
+                if (event.data==='AUTH_REQUIRED') { clearSession(); clearToken(); iframeLoadState='auth-required'; showAuthOverlay(); }
+                if (event.data==='UNAUTHORIZED_USER') { clearSession(); clearToken(); showUnauthorizedOverlay(); }
             } else if (event.data?.type) {
                 if (event.data.type==='AUTH_SUCCESS') { storeSession(event.data.sessionId); showApp(); }
-                if (event.data.type==='SESSION_EXPIRED') { clearSession(); iframeLoadState='session-expired'; showLoadingOverlay('Session expired'); setTimeout(showAuthOverlay,1500); }
+                if (event.data.type==='SESSION_EXPIRED') { clearSession(); clearToken(); iframeLoadState='session-expired'; showLoadingOverlay('Session expired'); setTimeout(showAuthOverlay,1500); }
             }
         });
 
