@@ -923,6 +923,7 @@
                 if (!container) return;
                 const cards = container.querySelectorAll('.nav-card');
                 const cardMap = new Map();
+                const orderedSet = new Set(order);
                 cards.forEach(card => {
                     const cardId = card.dataset.cardId;
                     if (cardId) cardMap.set(cardId, card);
@@ -930,6 +931,10 @@
                 order.forEach((cardId) => {
                     const card = cardMap.get(cardId);
                     if (card) container.appendChild(card);
+                });
+                cards.forEach(card => {
+                    const cardId = card.dataset.cardId;
+                    if (cardId && !orderedSet.has(cardId)) container.appendChild(card);
                 });
             } catch (e) { console.error('Error loading button order:', e); }
         }
