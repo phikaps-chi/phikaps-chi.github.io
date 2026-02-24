@@ -13,7 +13,12 @@ function coerceToEpochMs(v) {
   if (v == null) return null;
   if (v instanceof Date) { const t = v.getTime(); return isNaN(t) ? null : t; }
   if (typeof v === 'number') return isNaN(v) ? null : v;
-  if (typeof v === 'string') { const t = Date.parse(v); return isNaN(t) ? null : t; }
+  if (typeof v === 'string') {
+    const n = Number(v);
+    if (!isNaN(n) && /^\d+$/.test(v.trim())) return n;
+    const t = Date.parse(v);
+    return isNaN(t) ? null : t;
+  }
   return v;
 }
 
