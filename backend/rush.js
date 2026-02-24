@@ -139,35 +139,95 @@ async function calculateRushStatistics(recruitsTabId) {
 }
 
 function calculateBrotherStats(brotherName, recruits, comments) {
-  let metCount = 0;
-  let likesCount = 0;
-  let dislikesCount = 0;
-  let commentCount = 0;
+  let recruitsMetCount = 0;
+  let recruitsLikedCount = 0;
+  let recruitsDislikedCount = 0;
+  let commentsCount = 0;
+  let points = 0;
+  let primaryContactCount = 0;
+  let bidSuccessBonus = 0;
+
+  const brotherCommentsByRecruit = {};
+  comments.forEach((c) => {
+    if (c.author === brotherName) {
+      commentsCount++;
+      if (!brotherCommentsByRecruit[c.recruitId]) brotherCommentsByRecruit[c.recruitId] = [];
+      brotherCommentsByRecruit[c.recruitId].push(c);
+    }
+  });
 
   recruits.forEach((r) => {
-    try { if (JSON.parse(r.met || '[]').includes(brotherName)) metCount++; } catch (_) {}
-    try { if (JSON.parse(r.likes || '[]').includes(brotherName)) likesCount++; } catch (_) {}
-    try { if (JSON.parse(r.dislikes || '[]').includes(brotherName)) dislikesCount++; } catch (_) {}
+    let metThis = false;
+    let likedThis = false;
+    let dislikedThis = false;
+    try { metThis = JSON.parse(r.met || '[]').includes(brotherName); } catch (_) {}
+    try { likedThis = JSON.parse(r.likes || '[]').includes(brotherName); } catch (_) {}
+    try { dislikedThis = JSON.parse(r.dislikes || '[]').includes(brotherName); } catch (_) {}
+
+    if (metThis) {
+      recruitsMetCount++;
+      points += 6;
+      try {
+        const metArr = JSON.parse(r.met || '[]');
+        if (metArr[0] === brotherName) points += 10;
+      } catch (_) {}
+    }
+
+    if (likedThis) {
+      recruitsLikedCount++;
+      if (metThis) {
+        const hasComment = !!brotherCommentsByRecruit[r.id];
+        points += hasComment ? 5 : 2;
+      }
+      try {
+        const likesArr = JSON.parse(r.likes || '[]');
+        if (likesArr[0] === brotherName) points += 8;
+      } catch (_) {}
+    }
+
+    if (dislikedThis) {
+      recruitsDislikedCount++;
+      const hasComment = !!brotherCommentsByRecruit[r.id];
+      points += hasComment ? 8 : 5;
+    }
+
+    if ((r.primaryContacts || []).includes(brotherName)) {
+      primaryContactCount++;
+      points += 50;
+      if (r.tier === 4 || r.tier === '4') {
+        bidSuccessBonus += 50;
+        points += 50;
+      }
+    }
   });
 
-  comments.forEach((c) => {
-    if (c.author === brotherName) commentCount++;
+  comments.filter((c) => c.author === brotherName).forEach((c) => {
+    const len = (c.text || '').length;
+    points += 5;
+    if (len >= 100) points += 10;
+    else if (len >= 50) points += 5;
   });
 
-  const points = metCount * 3 + likesCount * 5 + commentCount * 2;
-  return { brotherName, metCount, likesCount, dislikesCount, commentCount, points };
+  const totalVotes = recruitsLikedCount + recruitsDislikedCount;
+  if (totalVotes > 0) {
+    const commentRate = commentsCount / totalVotes;
+    if (commentRate >= 0.75) points = Math.round(points * 1.5);
+    else if (commentRate >= 0.5) points = Math.round(points * 1.2);
+  }
+
+  return { name: brotherName, recruitsMetCount, recruitsLikedCount, recruitsDislikedCount, commentsCount, bidSuccessBonus, points };
 }
 
 function calculateBadges(stats, totalRecruits) {
   const badges = [];
-  if (stats.metCount >= totalRecruits * 0.75 && totalRecruits > 0)
-    badges.push({ name: 'Social Butterfly', icon: '\uD83E\uDD8B' });
-  if (stats.commentCount >= 10)
-    badges.push({ name: 'Commentator', icon: '\uD83D\uDCAC' });
-  if (stats.likesCount >= 5)
-    badges.push({ name: 'Hype Man', icon: '\uD83D\uDD25' });
+  if (stats.recruitsMetCount >= totalRecruits * 0.75 && totalRecruits > 0)
+    badges.push({ name: 'Social Butterfly', emoji: '\uD83E\uDD8B', description: 'Met 75%+ of recruits' });
+  if (stats.commentsCount >= 10)
+    badges.push({ name: 'Commentator', emoji: '\uD83D\uDCAC', description: 'Left 10+ comments' });
+  if (stats.recruitsLikedCount >= 5)
+    badges.push({ name: 'Hype Man', emoji: '\uD83D\uDD25', description: 'Liked 5+ recruits' });
   if (stats.points >= 50)
-    badges.push({ name: 'Rush MVP', icon: '\uD83C\uDFC6' });
+    badges.push({ name: 'Rush MVP', emoji: '\uD83C\uDFC6', description: 'Scored 50+ points' });
   return badges;
 }
 
@@ -237,12 +297,19 @@ async function calculateRushEngagement(rushId) {
     });
 
     allBrotherStats.sort((a, b) => b.points - a.points);
-    const topRushers = allBrotherStats.slice(0, 10);
+    const topRushers = allBrotherStats;
     const avgPoints = allBrotherStats.length > 0
       ? parseFloat((allBrotherStats.reduce((sum, b) => sum + b.points, 0) / allBrotherStats.length).toFixed(1))
       : 0;
 
-    return { topRushers, averagePoints: avgPoints, totalParticipants: allBrotherStats.length };
+    return {
+      topRushers,
+      allRushers: allBrotherStats,
+      avgPoints,
+      averagePoints: avgPoints,
+      totalParticipants: allBrotherStats.length,
+      rushName: rushEvent.name || '',
+    };
   } catch (e) {
     console.error('Error calculating engagement:', e.message);
     return { error: e.message };
