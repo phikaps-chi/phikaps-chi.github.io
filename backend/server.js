@@ -59,11 +59,37 @@ app.get('/sse', (req, res) => {
     Connection: 'keep-alive',
   });
   res.flushHeaders();
-  sseClients.push(res);
+
+  const user = req.query.user || null;
+  const context = req.query.context || 'general';
+  const client = { res, user, context };
+  sseClients.push(client);
+
+  if (user) {
+    const users = getActiveUsers(context);
+    broadcastSSEToContext(context, { activeUsers: users });
+  }
+
   req.on('close', () => {
-    sseClients = sseClients.filter((c) => c !== res);
+    sseClients = sseClients.filter((c) => c !== client);
+    if (user) {
+      const users = getActiveUsers(context);
+      broadcastSSEToContext(context, { activeUsers: users });
+    }
   });
 });
+
+function getActiveUsers(context) {
+  const names = sseClients
+    .filter((c) => c.context === context && c.user)
+    .map((c) => c.user);
+  return [...new Set(names)];
+}
+
+function broadcastSSEToContext(context, data) {
+  const msg = `data: ${JSON.stringify(data)}\n\n`;
+  sseClients.filter((c) => c.context === context).forEach((c) => c.res.write(msg));
+}
 
 app.get('/rush-update', (_req, res) => {
   broadcastSSE({ refresh: true });
@@ -77,7 +103,7 @@ app.get('/roster-update', (_req, res) => {
 
 function broadcastSSE(data) {
   const msg = `data: ${JSON.stringify(data)}\n\n`;
-  sseClients.forEach((client) => client.write(msg));
+  sseClients.forEach((c) => c.res.write(msg));
 }
 
 /**
@@ -137,7 +163,7 @@ const server = app.listen(config.port, () => {
 
 function shutdown(signal) {
   console.log(`\n${signal} received — closing connections…`);
-  sseClients.forEach((c) => c.end());
+  sseClients.forEach((c) => c.res.end());
   sseClients = [];
   server.close(() => {
     console.log('Server shut down.');
