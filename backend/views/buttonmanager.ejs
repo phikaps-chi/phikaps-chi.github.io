@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Button Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .background-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
+            z-index: -1;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffd700; background: #0a0a0a; min-height: 100vh;
+            padding: 1rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            text-align: center; margin-bottom: 2rem; padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border-radius: 20px; border: 2px solid #ffd700;
+        }
+        .title { font-size: 2rem; font-weight: 300; margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1rem; opacity: 0.8; }
+
+        /* Button Type Selection */
+        .type-selection {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem; margin-bottom: 2rem;
+        }
+        .type-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border: 2px solid #ffd700; border-radius: 20px; padding: 2rem;
+            cursor: pointer; transition: all 0.3s ease;
+            text-align: center;
+        }
+        .type-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.3);
+        }
+        .type-card.selected {
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.2) 100%);
+        }
+        .type-card h3 {
+            font-size: 1.3rem; margin-bottom: 1rem; color: #ffd700;
+        }
+        .type-card p {
+            font-size: 0.9rem; opacity: 0.8; line-height: 1.5;
+        }
+
+        /* Creation Form */
+        .creation-form {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border: 2px solid #ffd700; border-radius: 20px; padding: 2rem;
+            margin-bottom: 2rem; display: none;
+        }
+        .creation-form.show { display: block; }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-group label {
+            display: block; margin-bottom: 0.5rem;
+            color: #ffd700; font-size: 1rem;
+        }
+        .form-group input, .form-group textarea, .form-group select {
+            width: 100%; padding: 0.8rem; background: rgba(255, 215, 0, 0.1);
+            border: 2px solid #ffd700; border-radius: 10px;
+            color: #ffd700; font-size: 1rem;
+        }
+        .form-group textarea {
+            min-height: 150px; font-family: 'Courier New', monospace;
+        }
+        .form-group input::placeholder,
+        .form-group textarea::placeholder {
+            color: rgba(255, 215, 0, 0.5);
+        }
+
+        /* Input Type Toggle */
+        .input-type-toggle {
+            display: flex; gap: 1rem; margin-bottom: 1rem;
+        }
+        .toggle-btn {
+            flex: 1; padding: 0.6rem; background: transparent;
+            border: 2px solid #ffd700; color: #ffd700;
+            border-radius: 10px; cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .toggle-btn.active {
+            background: #ffd700; color: #1a1a1a;
+        }
+
+        /* Button Actions */
+        .actions {
+            display: flex; gap: 1rem; justify-content: center;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 0.8rem 1.5rem; background: #ffd700; color: #1a1a1a;
+            border: none; border-radius: 25px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #ffed4a; transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
+        }
+        .btn-secondary {
+            background: transparent; border: 2px solid #ffd700;
+            color: #ffd700;
+        }
+        .btn-secondary:hover {
+            background: #ffd700; color: #1a1a1a;
+        }
+        .btn:disabled {
+            opacity: 0.5; cursor: not-allowed;
+        }
+
+        /* Existing Buttons List */
+        .existing-buttons {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border: 2px solid #ffd700; border-radius: 20px; padding: 2rem;
+        }
+        .existing-buttons-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;
+        }
+        .existing-buttons h2 {
+            font-size: 1.5rem; margin: 0; color: #ffd700;
+        }
+        .bulk-actions {
+            display: flex; gap: 0.5rem; align-items: center;
+        }
+        .button-list {
+            display: grid; gap: 1rem;
+        }
+        .button-item {
+            background: rgba(255, 215, 0, 0.05); border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px; padding: 1rem;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: background 0.2s ease;
+        }
+        .button-item.selected {
+            background: rgba(255, 215, 0, 0.15);
+            border-color: #ffd700;
+        }
+        .button-item-checkbox {
+            display: flex; align-items: center; margin-right: 1rem;
+        }
+        .button-item-checkbox input[type="checkbox"] {
+            width: 18px; height: 18px; cursor: pointer;
+            accent-color: #ffd700;
+        }
+        .button-item-content {
+            display: flex; justify-content: space-between; align-items: center;
+            flex: 1;
+        }
+        .button-item-info {
+            flex: 1;
+        }
+        .button-item-name {
+            font-size: 1.1rem; margin-bottom: 0.3rem; color: #ffd700;
+        }
+        .button-item-type {
+            font-size: 0.85rem; opacity: 0.7;
+        }
+        .button-item-actions {
+            display: flex; gap: 0.5rem;
+        }
+        .btn-small {
+            padding: 0.4rem 0.8rem; font-size: 0.85rem;
+        }
+        .btn-delete {
+            background: #f44336; color: white;
+        }
+        .btn-delete:hover {
+            background: #d32f2f;
+        }
+
+        /* Preview Section */
+        .preview-section {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border: 2px solid #ffd700; border-radius: 20px; padding: 2rem;
+            margin-top: 2rem; display: none;
+        }
+        .preview-section.show { display: block; }
+        .preview-section h3 {
+            font-size: 1.3rem; margin-bottom: 1rem; color: #ffd700;
+        }
+        .preview-content {
+            background: rgba(255, 255, 255, 0.95); border-radius: 10px;
+            padding: 1rem; min-height: 100px;
+        }
+
+        /* Status Messages */
+        .status-message {
+            padding: 1rem; border-radius: 10px; margin-bottom: 1rem;
+            text-align: center; display: none;
+        }
+        .status-message.success {
+            background: rgba(76, 175, 80, 0.2); border: 2px solid #4caf50;
+            color: #4caf50;
+        }
+        .status-message.error {
+            background: rgba(244, 67, 54, 0.2); border: 2px solid #f44336;
+            color: #f44336;
+        }
+        .status-message.info {
+            background: rgba(33, 150, 243, 0.2); border: 2px solid #2196f3;
+            color: #2196f3;
+        }
+
+        /* Loading Spinner */
+        .loading-spinner {
+            border: 3px solid rgba(255, 215, 0, 0.3);
+            border-top: 3px solid #ffd700; border-radius: 50%;
+            width: 30px; height: 30px; animation: spin 1s linear infinite;
+            margin: 2rem auto; display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Help Text */
+        .help-text {
+            font-size: 0.85rem; color: rgba(255, 215, 0, 0.7);
+            margin-top: 0.3rem; line-height: 1.4;
+        }
+
+        /* Checkbox styling */
+        .checkbox-item {
+            padding: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255, 215, 0, 0.1);
+        }
+        .checkbox-item:last-child {
+            border-bottom: none;
+        }
+        .checkbox-item:hover {
+            background: rgba(255, 215, 0, 0.05);
+            padding-left: 0.5rem;
+            margin-left: -0.5rem;
+            margin-right: -0.5rem;
+            padding-right: 0.5rem;
+        }
+        .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #ffd700;
+            flex-shrink: 0;
+        }
+        .checkbox-item label {
+            cursor: pointer;
+            margin: 0;
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .checkbox-item span {
+            color: #ffd700;
+            font-size: 0.95rem;
+        }
+
+        @media (max-width: 768px) {
+            .type-selection { grid-template-columns: 1fr; }
+            .actions { flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="background-overlay"></div>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Button Manager</h1>
+            <p class="subtitle">Create Custom Buttons and Shortcuts for Officers</p>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+
+
+        <!-- Creation Form -->
+        <div class="creation-form show" id="creationForm">
+            <h2 id="formTitle">Create New Button</h2>
+
+            <!-- Creation Mode Toggle -->
+            <div class="form-group">
+                <label>Creation Mode</label>
+                <div class="input-type-toggle">
+                    <button class="toggle-btn active" onclick="toggleCreationMode('single')">Single Button</button>
+                    <button class="toggle-btn" onclick="toggleCreationMode('bulk')">Bulk/Personalized</button>
+                </div>
+                <div class="help-text">Single: One button with same content for selected audience | Bulk: Individual buttons with different content for each person</div>
+            </div>
+
+            <!-- Single Mode Fields -->
+            <div id="singleModeFields">
+                <div class="form-group">
+                    <label for="buttonName">Button Name *</label>
+                    <input type="text" id="buttonName" placeholder="Enter a descriptive name for this button">
+                    <div class="help-text">This name will be used to identify the button in the system</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="buttonDescription">Description</label>
+                    <input type="text" id="buttonDescription" placeholder="Brief description of what this button does">
+                    <div class="help-text">Optional: Add a short description to help users understand this button's purpose</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="buttonIcon">Icon</label>
+                    <select id="buttonIcon">
+                        <option value="">No Icon</option>
+                        <option value="📊">📊 Chart/Stats</option>
+                        <option value="💰">💰 Money/Budget</option>
+                        <option value="📅">📅 Calendar/Events</option>
+                        <option value="📝">📝 Document</option>
+                        <option value="👥">👥 People/Groups</option>
+                        <option value="🏠">🏠 Home/House</option>
+                        <option value="🎓">🎓 Academic</option>
+                        <option value="🏆">🏆 Achievement</option>
+                        <option value="⚙️">⚙️ Settings</option>
+                        <option value="📧">📧 Email/Messages</option>
+                        <option value="📋">📋 Clipboard/Tasks</option>
+                        <option value="🔗">🔗 Link</option>
+                        <option value="🎯">🎯 Target/Goal</option>
+                        <option value="📈">📈 Growth/Progress</option>
+                        <option value="🎉">🎉 Celebration</option>
+                        <option value="🎨">🎨 Creative/Design</option>
+                        <option value="🏃">🏃 Sports/Activity</option>
+                        <option value="🍕">🍕 Food/Social</option>
+                        <option value="🎵">🎵 Music</option>
+                        <option value="🔔">🔔 Notifications</option>
+                    </select>
+                    <div class="help-text">Select an icon to help visually identify this button</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="buttonColor">Button Color</label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="color-option" data-color="#ffd700" style="background: #ffd700; color: #000; padding: 0.5rem; border: 2px solid #ffd700; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#ffd700')">Gold</button>
+                        <button type="button" class="color-option" data-color="#4caf50" style="background: #4caf50; color: white; padding: 0.5rem; border: 2px solid #4caf50; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#4caf50')">Green</button>
+                        <button type="button" class="color-option" data-color="#2196f3" style="background: #2196f3; color: white; padding: 0.5rem; border: 2px solid #2196f3; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#2196f3')">Blue</button>
+                        <button type="button" class="color-option" data-color="#f44336" style="background: #f44336; color: white; padding: 0.5rem; border: 2px solid #f44336; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#f44336')">Red</button>
+                        <button type="button" class="color-option" data-color="#9c27b0" style="background: #9c27b0; color: white; padding: 0.5rem; border: 2px solid #9c27b0; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#9c27b0')">Purple</button>
+                        <button type="button" class="color-option" data-color="#ff9800" style="background: #ff9800; color: white; padding: 0.5rem; border: 2px solid #ff9800; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#ff9800')">Orange</button>
+                        <button type="button" class="color-option" data-color="#00bcd4" style="background: #00bcd4; color: white; padding: 0.5rem; border: 2px solid #00bcd4; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#00bcd4')">Cyan</button>
+                        <button type="button" class="color-option" data-color="#e91e63" style="background: #e91e63; color: white; padding: 0.5rem; border: 2px solid #e91e63; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectColor('#e91e63')">Pink</button>
+                    </div>
+                    <input type="hidden" id="buttonColor" value="#ffd700">
+                    <div class="help-text">Choose a color theme for this button (default: Gold)</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="ownerPosition">Owner Position (Optional)</label>
+                    <select id="ownerPosition">
+                        <option value="">None - Only I can manage</option>
+                        <option value="Alpha">Alpha</option>
+                        <option value="Beta">Beta</option>
+                        <option value="Sigma">Sigma</option>
+                        <option value="Chi">Chi</option>
+                        <option value="Iota">Iota</option>
+                        <option value="Tau">Tau</option>
+                        <option value="Gamma">Gamma</option>
+                        <option value="Rho">Rho</option>
+                        <option value="Theta">Theta</option>
+                        <option value="Pi">Pi</option>
+                        <option value="Delta">Delta</option>
+                        <option value="Psi">Psi</option>
+                        <option value="Upsilon">Upsilon</option>
+                        <option value="Phi">Phi</option>
+                        <option value="Omicron">Omicron</option>
+                        <option value="Mu">Mu</option>
+                    </select>
+                    <div class="help-text">Allow future officers in this position to manage this button (e.g., Tau for budget buttons)</div>
+                </div>
+            </div>
+
+            <!-- Bulk Mode Fields -->
+            <div id="bulkModeFields" style="display: none;">
+                <div class="form-group">
+                    <label for="bulkButtonNameTemplate">Button Name Template *</label>
+                    <input type="text" id="bulkButtonNameTemplate" placeholder="e.g., {{name}} Budget" value="{{name}} Budget">
+                    <div class="help-text">Use {{name}} as placeholder for the person/position name</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bulkButtonDescription">Description (same for all)</label>
+                    <input type="text" id="bulkButtonDescription" placeholder="Brief description of what these buttons do">
+                    <div class="help-text">Optional: Add a short description that will apply to all buttons created</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bulkButtonIcon">Icon (same for all)</label>
+                    <select id="bulkButtonIcon">
+                        <option value="">No Icon</option>
+                        <option value="📊">📊 Chart/Stats</option>
+                        <option value="💰">💰 Money/Budget</option>
+                        <option value="📅">📅 Calendar/Events</option>
+                        <option value="📝">📝 Document</option>
+                        <option value="👥">👥 People/Groups</option>
+                        <option value="🏠">🏠 Home/House</option>
+                        <option value="🎓">🎓 Academic</option>
+                        <option value="🏆">🏆 Achievement</option>
+                        <option value="⚙️">⚙️ Settings</option>
+                        <option value="📧">📧 Email/Messages</option>
+                        <option value="📋">📋 Clipboard/Tasks</option>
+                        <option value="🔗">🔗 Link</option>
+                        <option value="🎯">🎯 Target/Goal</option>
+                        <option value="📈">📈 Growth/Progress</option>
+                        <option value="🎉">🎉 Celebration</option>
+                        <option value="🎨">🎨 Creative/Design</option>
+                        <option value="🏃">🏃 Sports/Activity</option>
+                        <option value="🍕">🍕 Food/Social</option>
+                        <option value="🎵">🎵 Music</option>
+                        <option value="🔔">🔔 Notifications</option>
+                    </select>
+                    <div class="help-text">Select an icon for all buttons created in this batch</div>
+                </div>
+
+                <div class="form-group">
+                    <label for="bulkButtonColor">Button Color (same for all)</label>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <button type="button" class="bulk-color-option" data-color="#ffd700" style="background: #ffd700; color: #000; padding: 0.5rem; border: 2px solid #ffd700; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#ffd700')">Gold</button>
+                        <button type="button" class="bulk-color-option" data-color="#4caf50" style="background: #4caf50; color: white; padding: 0.5rem; border: 2px solid #4caf50; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#4caf50')">Green</button>
+                        <button type="button" class="bulk-color-option" data-color="#2196f3" style="background: #2196f3; color: white; padding: 0.5rem; border: 2px solid #2196f3; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#2196f3')">Blue</button>
+                        <button type="button" class="bulk-color-option" data-color="#f44336" style="background: #f44336; color: white; padding: 0.5rem; border: 2px solid #f44336; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#f44336')">Red</button>
+                        <button type="button" class="bulk-color-option" data-color="#9c27b0" style="background: #9c27b0; color: white; padding: 0.5rem; border: 2px solid #9c27b0; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#9c27b0')">Purple</button>
+                        <button type="button" class="bulk-color-option" data-color="#ff9800" style="background: #ff9800; color: white; padding: 0.5rem; border: 2px solid #ff9800; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#ff9800')">Orange</button>
+                        <button type="button" class="bulk-color-option" data-color="#00bcd4" style="background: #00bcd4; color: white; padding: 0.5rem; border: 2px solid #00bcd4; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#00bcd4')">Cyan</button>
+                        <button type="button" class="bulk-color-option" data-color="#e91e63" style="background: #e91e63; color: white; padding: 0.5rem; border: 2px solid #e91e63; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="selectBulkColor('#e91e63')">Pink</button>
+                    </div>
+                    <input type="hidden" id="bulkButtonColor" value="#ffd700">
+                    <div class="help-text">Choose a color theme for all buttons (default: Gold)</div>
+                </div>
+            </div>
+
+            <!-- Target Selection -->
+            <div class="form-group">
+                <label>Target Audience *</label>
+                <div class="input-type-toggle">
+                    <button class="toggle-btn active" onclick="toggleTargetType('all')">All Brothers</button>
+                    <button class="toggle-btn" onclick="toggleTargetType('specific_brothers')">Specific Brothers</button>
+                    <button class="toggle-btn" onclick="toggleTargetType('specific_positions')">Specific Positions</button>
+                </div>
+            </div>
+
+            <!-- Exclude Pledges Option -->
+            <div class="form-group">
+                <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0;">
+                    <input type="checkbox" id="excludePledges" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ffd700;" />
+                    <label for="excludePledges" style="cursor: pointer; margin: 0; color: #ffd700; font-size: 0.95rem;">
+                        🚫 Exclude Pledges (Hide from anyone with "Pledge" position)
+                    </label>
+                </div>
+                <div class="help-text">When checked, this button will be hidden from all users who have "Pledge" in their position list</div>
+            </div>
+
+            <!-- Specific Brothers Selection -->
+            <div class="form-group" id="specificBrothersGroup" style="display: none;">
+                <label>Select Brothers</label>
+                <div style="max-height: 200px; overflow-y: auto; border: 2px solid #ffd700; border-radius: 10px; padding: 1rem; background: rgba(255, 215, 0, 0.05);">
+                    <div id="brotherCheckboxes">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+                <div class="help-text">Select which brothers should see this button</div>
+            </div>
+
+            <!-- Specific Positions Selection -->
+            <div class="form-group" id="specificPositionsGroup" style="display: none;">
+                <label>Select Officer Positions</label>
+                <div style="max-height: 200px; overflow-y: auto; border: 2px solid #ffd700; border-radius: 10px; padding: 1rem; background: rgba(255, 215, 0, 0.05);">
+                    <div id="positionCheckboxes">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+                <div class="help-text">Select which officer positions should see this button</div>
+            </div>
+
+            <div class="form-group">
+                <label>Content Type</label>
+                <div class="input-type-toggle">
+                    <button class="toggle-btn active" onclick="toggleInputType('link')">Shortcut Link</button>
+                    <button class="toggle-btn" onclick="toggleInputType('html')">Custom HTML</button>
+                </div>
+            </div>
+
+            <!-- Single Mode Content Input -->
+            <div id="singleContentInput">
+                <!-- Link Input -->
+                <div class="form-group" id="linkInputGroup">
+                    <label for="buttonLink">Shortcut URL *</label>
+                    <input type="url" id="buttonLink" placeholder="https://example.com">
+                    <div class="help-text">Enter the full URL including https://</div>
+                </div>
+
+                <!-- HTML Input -->
+                <div class="form-group" id="htmlInputGroup" style="display: none;">
+                    <label for="buttonHTML">Custom HTML *</label>
+                    <textarea id="buttonHTML" placeholder="Enter your custom HTML code here..."></textarea>
+                    <div class="help-text">HTML will be sanitized for security. Complex HTML will be stored in cloud storage.</div>
+                </div>
+            </div>
+
+            <!-- Bulk Mode Content Input -->
+            <div id="bulkContentInput" style="display: none;">
+                <div class="form-group">
+                    <label>Individual Content</label>
+                    <div id="bulkContentFields" style="max-height: 400px; overflow-y: auto; border: 2px solid #ffd700; border-radius: 10px; padding: 1rem; background: rgba(255, 215, 0, 0.05);">
+                        <!-- Will be populated when brothers/positions are selected -->
+                        <div class="help-text" style="text-align: center;">Select brothers or positions above to enter individual content</div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="actions">
+                <button class="btn btn-secondary" onclick="cancelCreation()">Cancel</button>
+                <button class="btn btn-secondary" onclick="previewButton()">Preview</button>
+                <button class="btn" onclick="saveButton()">Save Button</button>
+            </div>
+        </div>
+
+        <!-- Preview Section -->
+        <div class="preview-section" id="previewSection">
+            <h3>Preview</h3>
+            <div class="preview-content" id="previewContent">
+                <!-- Preview will be rendered here -->
+            </div>
+        </div>
+
+        <!-- Existing Buttons -->
+        <div class="existing-buttons" id="existingButtons">
+            <div class="existing-buttons-header">
+                <h2>Existing Buttons</h2>
+                <div class="bulk-actions">
+                    <button class="btn btn-secondary btn-small" onclick="selectAllButtons()">Select All</button>
+                    <button class="btn btn-delete btn-small" onclick="bulkDeleteButtons()" id="bulkDeleteBtn">Delete Selected</button>
+                </div>
+            </div>
+            <div class="loading-spinner" id="loadingSpinner"></div>
+            <div class="button-list" id="buttonList">
+                <!-- Existing buttons will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Wrap in IIFE to avoid global scope pollution
+        (function() {
+            'use strict';
+
+            // User data from template
+            const USER_EMAIL = '<%- email %>';
+            const USER_POSITION = '<%- position %>';
+            const SESSION_ID = '<%- sessionId %>';
+
+            let inputType = 'link';
+            let targetType = 'all';
+            let creationMode = 'single';
+            let existingButtons = [];
+            let allBrothers = [];
+            let allPositions = [];
+            let editingButtonId = null; // Track which button we're editing (null = creating new)
+
+            // Initialize page
+            function initializePage() {
+                loadExistingButtons();
+                loadBrothersAndPositions();
+            }
+
+        // Toggle between single and bulk creation modes
+        function toggleCreationMode(mode) {
+            creationMode = mode;
+
+            // Update toggle buttons
+            const modeToggle = document.querySelectorAll('#creationForm .form-group')[0].querySelectorAll('.toggle-btn');
+            modeToggle.forEach(btn => {
+                btn.classList.toggle('active', btn.textContent.toLowerCase().includes(mode));
+            });
+
+            // Show/hide appropriate fields
+            document.getElementById('singleModeFields').style.display = mode === 'single' ? 'block' : 'none';
+            document.getElementById('bulkModeFields').style.display = mode === 'bulk' ? 'block' : 'none';
+            document.getElementById('singleContentInput').style.display = mode === 'single' ? 'block' : 'none';
+            document.getElementById('bulkContentInput').style.display = mode === 'bulk' ? 'block' : 'none';
+
+            // Update bulk content fields if in bulk mode
+            if (mode === 'bulk') {
+                updateBulkContentFields();
+            }
+        }
+
+        // Update bulk content fields based on selected targets
+        function updateBulkContentFields() {
+            const container = document.getElementById('bulkContentFields');
+            let selectedItems = [];
+
+            if (targetType === 'specific_brothers') {
+                const checkedBrothers = document.querySelectorAll('#brotherCheckboxes input[type="checkbox"]:checked');
+                checkedBrothers.forEach(cb => {
+                    const brother = allBrothers.find(b => b.email === cb.value);
+                    if (brother) {
+                        selectedItems.push({ name: brother.name, id: brother.email });
+                    }
+                });
+            } else if (targetType === 'specific_positions') {
+                const checkedPositions = document.querySelectorAll('#positionCheckboxes input[type="checkbox"]:checked');
+                checkedPositions.forEach(cb => {
+                    selectedItems.push({ name: cb.value, id: cb.value });
+                });
+            }
+
+            if (selectedItems.length === 0) {
+                container.innerHTML = '<div class="help-text" style="text-align: center;">Select brothers or positions above to enter individual content</div>';
+                return;
+            }
+
+            // Generate input fields for each selected item
+            container.innerHTML = selectedItems.map(item => `
+                <div style="margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid rgba(255, 215, 0, 0.3);">
+                    <label style="color: #ffd700; margin-bottom: 0.5rem; display: block; font-weight: bold;">${item.name}</label>
+                    ${inputType === 'link' ?
+                        `<input type="url" class="bulk-content-input" data-target="${item.id}" placeholder="https://example.com"
+                         style="width: 100%; padding: 0.8rem; background: rgba(255, 215, 0, 0.1); border: 2px solid #ffd700;
+                         border-radius: 10px; color: #ffd700;">` :
+                        `<textarea class="bulk-content-input" data-target="${item.id}" placeholder="Enter HTML for ${item.name}..."
+                         style="width: 100%; padding: 0.8rem; background: rgba(255, 215, 0, 0.1); border: 2px solid #ffd700;
+                         border-radius: 10px; color: #ffd700; min-height: 100px; font-family: 'Courier New', monospace;"></textarea>`
+                    }
+                </div>
+            `).join('');
+        }
+
+        // Toggle between link and HTML input
+        function toggleInputType(type) {
+            inputType = type;
+
+            // Find all toggle buttons with the parent having "Content Type" label
+            const contentTypeSection = Array.from(document.querySelectorAll('#creationForm .form-group label'))
+                .find(label => label.textContent.trim() === 'Content Type');
+
+            if (contentTypeSection) {
+                const formGroup = contentTypeSection.closest('.form-group');
+                const toggleBtns = formGroup.querySelectorAll('.toggle-btn');
+                toggleBtns.forEach(btn => {
+                    const isLink = btn.textContent.toLowerCase().includes('link');
+                    const isHtml = btn.textContent.toLowerCase().includes('html');
+
+                    if (type === 'link' && isLink) {
+                        btn.classList.add('active');
+                    } else if (type === 'html' && isHtml) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            // Show/hide appropriate input
+            document.getElementById('linkInputGroup').style.display =
+                type === 'link' ? 'block' : 'none';
+            document.getElementById('htmlInputGroup').style.display =
+                type === 'html' ? 'block' : 'none';
+
+            // Update bulk content fields if in bulk mode
+            if (creationMode === 'bulk') {
+                updateBulkContentFields();
+            }
+        }
+
+        // Toggle between target types
+        function toggleTargetType(type) {
+            targetType = type;
+
+            // Find all toggle buttons with the parent having "Target Audience" label
+            const targetSection = Array.from(document.querySelectorAll('#creationForm .form-group label'))
+                .find(label => label.textContent.trim() === 'Target Audience *');
+
+            if (targetSection) {
+                const formGroup = targetSection.closest('.form-group');
+                const toggleBtns = formGroup.querySelectorAll('.toggle-btn');
+                toggleBtns.forEach(btn => {
+                    const btnText = btn.textContent.trim();
+                    const isAll = btnText === 'All Brothers';
+                    const isBrothers = btnText === 'Specific Brothers';
+                    const isPositions = btnText === 'Specific Positions';
+
+                    if ((type === 'all' && isAll) ||
+                        (type === 'specific_brothers' && isBrothers) ||
+                        (type === 'specific_positions' && isPositions)) {
+                        btn.classList.add('active');
+                    } else {
+                        btn.classList.remove('active');
+                    }
+                });
+            }
+
+            // Show/hide appropriate selection
+            document.getElementById('specificBrothersGroup').style.display =
+                type === 'specific_brothers' ? 'block' : 'none';
+            document.getElementById('specificPositionsGroup').style.display =
+                type === 'specific_positions' ? 'block' : 'none';
+
+            // Update bulk content fields if in bulk mode
+            if (creationMode === 'bulk') {
+                updateBulkContentFields();
+            }
+        }
+
+        // Load brothers and positions
+        function loadBrothersAndPositions() {
+            // Load brothers
+            fetch('/api/buttons/brothers' + window.location.search, { method: 'GET' })
+                .then(function(r) { return r.json(); })
+                .then(function(brothers) {
+                    allBrothers = brothers;
+                    const container = document.getElementById('brotherCheckboxes');
+                    container.innerHTML = brothers.map(brother => `
+                        <div class="checkbox-item">
+                            <input type="checkbox" value="${brother.email}" id="bro_${brother.email.replace(/[^a-zA-Z0-9]/g, '_')}" onchange="handleCheckboxChange()" />
+                            <label for="bro_${brother.email.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                <span>${brother.name}</span>
+                            </label>
+                        </div>
+                    `).join('');
+                })
+                .catch(function(error) {
+                    console.error('Error loading brothers:', error);
+                });
+
+            // Load positions
+            fetch('/api/buttons/positions' + window.location.search, { method: 'GET' })
+                .then(function(r) { return r.json(); })
+                .then(function(positions) {
+                    allPositions = positions;
+                    const container = document.getElementById('positionCheckboxes');
+                    container.innerHTML = positions.map(position => `
+                        <div class="checkbox-item">
+                            <input type="checkbox" value="${position}" id="pos_${position.replace(/[^a-zA-Z0-9]/g, '_')}" onchange="handleCheckboxChange()" />
+                            <label for="pos_${position.replace(/[^a-zA-Z0-9]/g, '_')}">
+                                <span>${position}</span>
+                            </label>
+                        </div>
+                    `).join('');
+                })
+                .catch(function(error) {
+                    console.error('Error loading positions:', error);
+                });
+        }
+
+        // Handle checkbox change in bulk mode
+        function handleCheckboxChange() {
+            if (creationMode === 'bulk') {
+                updateBulkContentFields();
+            }
+        }
+
+        // Preview button
+        function previewButton() {
+            const preview = document.getElementById('previewSection');
+            const content = document.getElementById('previewContent');
+
+            if (inputType === 'link') {
+                const url = document.getElementById('buttonLink').value;
+                if (!url) {
+                    showStatus('Please enter a URL to preview', 'error');
+                    return;
+                }
+                content.innerHTML = `<a href="${url}" target="_blank" style="display: inline-block; padding: 10px 20px; background: #ffd700; color: #000; text-decoration: none; border-radius: 5px;">Open Link</a>`;
+            } else {
+                const html = document.getElementById('buttonHTML').value;
+                if (!html) {
+                    showStatus('Please enter HTML to preview', 'error');
+                    return;
+                }
+                // Basic HTML sanitization for preview (server should do more thorough sanitization)
+                content.innerHTML = html;
+            }
+
+            preview.classList.add('show');
+            preview.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Save button
+        function saveButton() {
+            // Handle bulk mode
+            if (creationMode === 'bulk') {
+                saveBulkButtons();
+                return;
+            }
+
+            // Single mode logic
+            const buttonName = document.getElementById('buttonName').value.trim();
+
+            if (!buttonName) {
+                showStatus('Please enter a button name', 'error');
+                return;
+            }
+
+            let content = '';
+            if (inputType === 'link') {
+                content = document.getElementById('buttonLink').value.trim();
+                if (!content) {
+                    showStatus('Please enter a URL', 'error');
+                    return;
+                }
+            } else {
+                content = document.getElementById('buttonHTML').value.trim();
+                if (!content) {
+                    showStatus('Please enter HTML content', 'error');
+                    return;
+                }
+            }
+
+            // Get access list based on target type
+            let accessType = 'All';
+            let accessList = [];
+
+            if (targetType === 'specific_brothers') {
+                accessType = 'Specific Bros';
+                // Get names instead of emails
+                const checkedBrothers = document.querySelectorAll('#brotherCheckboxes input[type="checkbox"]:checked');
+                checkedBrothers.forEach(cb => {
+                    const brother = allBrothers.find(b => b.email === cb.value);
+                    if (brother) {
+                        accessList.push(brother.name);
+                    }
+                });
+                if (accessList.length === 0) {
+                    showStatus('Please select at least one brother', 'error');
+                    return;
+                }
+            } else if (targetType === 'specific_positions') {
+                accessType = 'Specific Officers';
+                const checkedPositions = document.querySelectorAll('#positionCheckboxes input[type="checkbox"]:checked');
+                accessList = Array.from(checkedPositions).map(cb => cb.value);
+                if (accessList.length === 0) {
+                    showStatus('Please select at least one position', 'error');
+                    return;
+                }
+            }
+
+            const buttonData = {
+                buttonName: buttonName,
+                description: document.getElementById('buttonDescription').value.trim(),
+                icon: document.getElementById('buttonIcon').value,
+                color: document.getElementById('buttonColor').value,
+                accessType: accessType,
+                accessList: accessList,
+                content: content,
+                ownerPosition: document.getElementById('ownerPosition').value,
+                excludePledges: document.getElementById('excludePledges').checked
+            };
+
+            // Disable save button and show loading state
+            const saveBtn = document.querySelector('.actions .btn:not(.btn-secondary)');
+            const originalBtnText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = editingButtonId ? 'Updating...' : 'Saving...';
+
+            showStatus(editingButtonId ? 'Updating button...' : 'Saving button...', 'info');
+            showLoading(true);
+
+            // Check if we're editing or creating
+            async function performSave() {
+                try {
+                    let result;
+
+                    if (editingButtonId) {
+                        // Update existing button
+                        buttonData.buttonId = editingButtonId;
+
+                        if (window.apiCallWithStrategy) {
+                            // Use IDEMPOTENT_UPDATE since updates can be safely retried
+                            result = await apiCallWithStrategy(
+                                'updateCustomButton',
+                                [buttonData, USER_EMAIL, SESSION_ID],
+                                'IDEMPOTENT_UPDATE'
+                            );
+                        } else {
+                            // Fallback to standard call
+                            result = await fetch('/api/buttons/update' + window.location.search, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(buttonData)
+                            }).then(function(r) { return r.json(); });
+                        }
+
+                        if (result.success) {
+                            showStatus('✓ Button updated successfully!', 'success');
+                            editingButtonId = null; // Clear editing state
+                            clearForm();
+                            loadExistingButtons();
+                        } else {
+                            showStatus('Error updating button: ' + (result.message || 'Unknown error'), 'error');
+                        }
+                    } else {
+                        // Create new button - generate request ID for duplicate detection
+                        buttonData.requestId = `btn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+                        if (window.apiCallWithStrategy) {
+                            // Use CREATE strategy to minimize duplicate risk
+                            result = await apiCallWithStrategy(
+                                'saveCustomButton',
+                                [buttonData, USER_EMAIL, SESSION_ID],
+                                'CREATE'
+                            );
+                        } else {
+                            // Fallback to standard call
+                            result = await fetch('/api/buttons/save' + window.location.search, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(buttonData)
+                            }).then(function(r) { return r.json(); });
+                        }
+
+                        if (result.success) {
+                            if (result.isDuplicate) {
+                                showStatus('Button was already created.', 'info');
+                            } else {
+                                showStatus('✓ Button saved successfully!', 'success');
+                            }
+                            clearForm();
+                            loadExistingButtons();
+                        } else {
+                            showStatus('Error saving button: ' + (result.message || 'Unknown error'), 'error');
+                        }
+                    }
+                } catch (error) {
+                    // Check for specific error types
+                    if (error.message && error.message.toLowerCase().includes('duplicate')) {
+                        showStatus('This button may have already been created. Please check the list.', 'warning');
+                        loadExistingButtons();
+                    } else {
+                        showStatus('Error saving button after retries: ' + error.message, 'error');
+                    }
+                } finally {
+                    showLoading(false);
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalBtnText;
+                }
+            }
+
+            // Execute the save
+            performSave();
+        }
+
+        // Save bulk buttons
+        function saveBulkButtons() {
+            const buttonNameTemplate = document.getElementById('bulkButtonNameTemplate').value.trim();
+
+            if (!buttonNameTemplate) {
+                showStatus('Please enter a button name template', 'error');
+                return;
+            }
+
+            // Get all individual content inputs
+            const contentInputs = document.querySelectorAll('.bulk-content-input');
+            const items = [];
+
+            contentInputs.forEach(input => {
+                const targetId = input.getAttribute('data-target');
+                const content = input.value.trim();
+
+                if (!content) {
+                    return; // Skip empty entries
+                }
+
+                let name = targetId;
+                // For brothers, get the name from the email
+                if (targetType === 'specific_brothers') {
+                    const brother = allBrothers.find(b => b.email === targetId);
+                    if (brother) {
+                        name = brother.name;
+                    }
+                }
+
+                items.push({
+                    name: name,
+                    content: content
+                });
+            });
+
+            if (items.length === 0) {
+                showStatus('Please enter content for at least one person/position', 'error');
+                return;
+            }
+
+            const bulkData = {
+                buttonNameTemplate: buttonNameTemplate,
+                description: document.getElementById('bulkButtonDescription').value.trim(),
+                icon: document.getElementById('bulkButtonIcon').value,
+                color: document.getElementById('bulkButtonColor').value,
+                accessType: targetType === 'specific_brothers' ? 'Specific Bros' : 'Specific Officers',
+                items: items
+            };
+
+            // Disable save button and show loading state
+            const saveBtn = document.querySelector('.actions .btn:not(.btn-secondary)');
+            const originalBtnText = saveBtn.textContent;
+            saveBtn.disabled = true;
+            saveBtn.textContent = `Creating ${items.length}...`;
+
+            showStatus(`Creating ${items.length} personalized buttons...`, 'info');
+            showLoading(true);
+
+            fetch('/api/buttons/bulk-save' + window.location.search, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bulkData)
+            })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    showLoading(false);
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalBtnText;
+
+                    if (result.success) {
+                        showStatus('✓ ' + result.message, 'success');
+                        clearForm();
+                        loadExistingButtons();
+                    } else {
+                        showStatus('Error saving buttons: ' + (result.message || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(function(error) {
+                    showLoading(false);
+                    saveBtn.disabled = false;
+                    saveBtn.textContent = originalBtnText;
+                    showStatus('Error saving buttons: ' + error.message, 'error');
+                });
+        }
+
+        // Cancel creation
+        function cancelCreation() {
+            editingButtonId = null; // Clear editing state first
+            clearForm();
+            document.getElementById('previewSection').classList.remove('show');
+        }
+
+        // Clear form
+        function clearForm() {
+            document.getElementById('buttonName').value = '';
+            document.getElementById('buttonDescription').value = '';
+            document.getElementById('buttonIcon').value = '';
+            document.getElementById('buttonColor').value = '#ffd700';
+            document.getElementById('ownerPosition').value = '';
+            document.getElementById('bulkButtonNameTemplate').value = '{{name}} Budget';
+            document.getElementById('bulkButtonDescription').value = '';
+            document.getElementById('bulkButtonIcon').value = '';
+            document.getElementById('bulkButtonColor').value = '#ffd700';
+            document.getElementById('buttonLink').value = '';
+            document.getElementById('buttonHTML').value = '';
+            document.querySelectorAll('#brotherCheckboxes input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            document.querySelectorAll('#positionCheckboxes input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            // Clear excludePledges checkbox
+            document.getElementById('excludePledges').checked = false;
+            // Clear bulk content fields
+            document.getElementById('bulkContentFields').innerHTML = '<div class="help-text" style="text-align: center;">Select brothers or positions above to enter individual content</div>';
+
+            // Reset color selections
+            document.querySelectorAll('.color-option, .bulk-color-option').forEach(btn => {
+                btn.style.boxShadow = 'none';
+                btn.style.transform = 'scale(1)';
+            });
+
+            // Reset to defaults
+            creationMode = 'single';
+            targetType = 'all';
+            editingButtonId = null; // Clear editing state
+            toggleCreationMode('single');
+            toggleInputType('link');
+            toggleTargetType('all');
+
+            // Reset form title
+            document.getElementById('formTitle').textContent = 'Create New Button';
+        }
+
+        // Load existing buttons
+        function loadExistingButtons() {
+            showLoading(true);
+
+            fetch('/api/buttons/manager' + window.location.search, { method: 'GET' })
+                .then(function(r) { return r.json(); })
+                .then(function(buttons) {
+                    showLoading(false);
+                    existingButtons = buttons;
+                    renderButtonList();
+                })
+                .catch(function(error) {
+                    showLoading(false);
+                    showStatus('Error loading buttons: ' + error.message, 'error');
+                });
+        }
+
+        // Render button list
+        function renderButtonList() {
+            const list = document.getElementById('buttonList');
+
+            if (!existingButtons || existingButtons.length === 0) {
+                list.innerHTML = '<p style="text-align: center; opacity: 0.7;">No buttons created yet</p>';
+                return;
+            }
+
+            list.innerHTML = existingButtons.map(button => {
+                let targetInfo = 'All Brothers';
+                if (button.accessType === 'Specific Bros') {
+                    targetInfo = `${button.accessList.length} Selected Brother${button.accessList.length > 1 ? 's' : ''}`;
+                } else if (button.accessType === 'Specific Officers') {
+                    targetInfo = button.accessList.join(', ');
+                }
+
+                const isHtml = button.content && button.content.includes('<');
+
+                return `
+                <div class="button-item" id="button-${button.buttonId}">
+                    <div class="button-item-checkbox">
+                        <input type="checkbox" class="button-checkbox" data-button-id="${button.buttonId}" onchange="toggleButtonSelection('${button.buttonId}')">
+                    </div>
+                    <div class="button-item-content">
+                        <div class="button-item-info">
+                            <div class="button-item-name">${button.buttonName}</div>
+                            <div class="button-item-type">
+                                ${isHtml ? 'HTML' : 'Link'} •
+                                ${targetInfo}
+                            </div>
+                        </div>
+                        <div class="button-item-actions">
+                            <button class="btn btn-secondary btn-small" onclick="editButton('${button.buttonId}')">Edit</button>
+                            <button class="btn btn-delete btn-small" onclick="deleteButton('${button.buttonId}')">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+        }
+
+        // Edit button
+        function editButton(buttonId) {
+            const button = existingButtons.find(b => b.buttonId === buttonId);
+            if (!button) return;
+
+            // Set editing mode
+            editingButtonId = buttonId;
+
+            // Populate basic fields
+            document.getElementById('buttonName').value = button.buttonName || '';
+            document.getElementById('buttonDescription').value = button.description || '';
+            document.getElementById('buttonIcon').value = button.icon || '';
+            document.getElementById('ownerPosition').value = button.ownerPosition || '';
+
+            // Set color
+            const color = button.color || '#ffd700';
+            document.getElementById('buttonColor').value = color;
+            selectColor(color);
+
+            // Set excludePledges checkbox
+            document.getElementById('excludePledges').checked = button.excludePledges || false;
+
+            // Check if content is a GCS URL
+            const isGcsUrl = button.content && button.content.includes('storage.googleapis.com');
+
+            if (isGcsUrl) {
+                // Content is stored in GCS, fetch it
+                showStatus('Loading button content from cloud storage...', 'info');
+                toggleInputType('html');
+                document.getElementById('buttonHTML').value = 'Loading...';
+
+                fetch('/api/buttons/fetch-html' + window.location.search, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: button.content })
+                })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        document.getElementById('buttonHTML').value = (data && data.html) || button.content;
+                        showStatus('Content loaded successfully', 'success');
+                    })
+                    .catch(function(error) {
+                        document.getElementById('buttonHTML').value = button.content;
+                        showStatus('Could not load content from cloud storage, showing URL instead', 'error');
+                    });
+            } else if (button.content && button.content.includes('<')) {
+                // Content is inline HTML
+                toggleInputType('html');
+                document.getElementById('buttonHTML').value = button.content;
+            } else {
+                // Content is a link
+                toggleInputType('link');
+                document.getElementById('buttonLink').value = button.content || '';
+            }
+
+            // Set target type
+            if (button.accessType === 'Specific Bros') {
+                toggleTargetType('specific_brothers');
+                // Check the appropriate brothers
+                button.accessList.forEach(name => {
+                    const brother = allBrothers.find(b => b.name === name);
+                    if (brother) {
+                        const checkbox = document.querySelector(`#brotherCheckboxes input[value="${brother.email}"]`);
+                        if (checkbox) checkbox.checked = true;
+                    }
+                });
+            } else if (button.accessType === 'Specific Officers') {
+                toggleTargetType('specific_positions');
+                // Check the appropriate positions
+                button.accessList.forEach(position => {
+                    const checkbox = document.querySelector(`#positionCheckboxes input[value="${position}"]`);
+                    if (checkbox) checkbox.checked = true;
+                });
+            } else {
+                toggleTargetType('all');
+            }
+
+            // Update form title to indicate editing
+            document.getElementById('formTitle').textContent = 'Edit Button';
+
+            // Scroll to form
+            document.getElementById('creationForm').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Toggle button selection (visual feedback)
+        function toggleButtonSelection(buttonId) {
+            const buttonItem = document.getElementById(`button-${buttonId}`);
+            const checkbox = buttonItem.querySelector('.button-checkbox');
+
+            if (checkbox.checked) {
+                buttonItem.classList.add('selected');
+            } else {
+                buttonItem.classList.remove('selected');
+            }
+        }
+
+        // Select all buttons
+        function selectAllButtons() {
+            const checkboxes = document.querySelectorAll('.button-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
+                toggleButtonSelection(cb.dataset.buttonId);
+            });
+        }
+
+        // Bulk delete buttons
+        function bulkDeleteButtons() {
+            const checkedBoxes = document.querySelectorAll('.button-checkbox:checked');
+
+            if (checkedBoxes.length === 0) {
+                showStatus('Please select buttons to delete', 'error');
+                return;
+            }
+
+            const buttonIds = Array.from(checkedBoxes).map(cb => cb.dataset.buttonId);
+            const buttonNames = buttonIds.map(id => {
+                const button = existingButtons.find(b => b.buttonId === id);
+                return button ? button.buttonName : 'Unknown';
+            });
+
+            // First confirmation
+            if (!confirm(`Are you sure you want to DELETE ${buttonIds.length} button(s)?\n\n${buttonNames.join('\n')}\n\nThis cannot be undone.`)) {
+                return;
+            }
+
+            // Second confirmation with DELETE prompt (unsuppressible)
+            const userInput = prompt(`To confirm deletion of ${buttonIds.length} button(s), type "DELETE" (all caps):`);
+            if (userInput !== 'DELETE') {
+                showStatus('Deletion cancelled', 'info');
+                return;
+            }
+
+            showStatus(`Deleting ${buttonIds.length} buttons...`, 'info');
+
+            // Delete buttons sequentially
+            let deletedCount = 0;
+            let errorCount = 0;
+
+            function deleteNext(index) {
+                if (index >= buttonIds.length) {
+                    // All done
+                    if (errorCount > 0) {
+                        showStatus(`Deleted ${deletedCount} buttons with ${errorCount} errors`, 'error');
+                    } else {
+                        showStatus(`✓ Successfully deleted ${deletedCount} buttons`, 'success');
+                    }
+                    loadExistingButtons();
+                    return;
+                }
+
+                const buttonId = buttonIds[index];
+                const buttonItem = document.getElementById(`button-${buttonId}`);
+
+                if (buttonItem) {
+                    buttonItem.style.opacity = '0.5';
+                    buttonItem.style.pointerEvents = 'none';
+                }
+
+                fetch('/api/buttons/' + buttonId + window.location.search, { method: 'DELETE' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(result) {
+                        if (result.success) {
+                            deletedCount++;
+                        } else {
+                            errorCount++;
+                        }
+                        deleteNext(index + 1);
+                    })
+                    .catch(function(error) {
+                        errorCount++;
+                        deleteNext(index + 1);
+                    });
+            }
+
+            deleteNext(0);
+        }
+
+        // Delete button
+        function deleteButton(buttonId) {
+            if (!confirm('Are you sure you want to delete this button?')) {
+                return;
+            }
+
+            // Second confirmation with DELETE prompt (unsuppressible)
+            const userInput = prompt('To confirm deletion, type "DELETE" (all caps):');
+            if (userInput !== 'DELETE') {
+                showStatus('Deletion cancelled', 'info');
+                return;
+            }
+
+            // Optimistic UI: Find and disable the button item immediately
+            const buttonItem = document.getElementById(`button-${buttonId}`);
+
+            if (buttonItem) {
+                // Disable both buttons and fade out
+                const deleteBtn = buttonItem.querySelector('.btn-delete');
+                const editBtn = buttonItem.querySelector('.btn-secondary');
+                deleteBtn.disabled = true;
+                editBtn.disabled = true;
+                deleteBtn.textContent = 'Deleting...';
+                buttonItem.style.opacity = '0.5';
+                buttonItem.style.pointerEvents = 'none';
+            }
+
+            showStatus('Deleting button...', 'info');
+
+            fetch('/api/buttons/' + buttonId + window.location.search, { method: 'DELETE' })
+                .then(function(r) { return r.json(); })
+                .then(function(result) {
+                    if (result.success) {
+                        showStatus('✓ Button deleted successfully', 'success');
+                        // Remove from existingButtons array
+                        existingButtons = existingButtons.filter(b => b.buttonId !== buttonId);
+                        // Re-render list
+                        renderButtonList();
+                    } else {
+                        // Rollback on error
+                        if (buttonItem) {
+                            buttonItem.style.opacity = '1';
+                            buttonItem.style.pointerEvents = 'auto';
+                            const deleteBtn = buttonItem.querySelector('.btn-delete');
+                            const editBtn = buttonItem.querySelector('.btn-secondary');
+                            deleteBtn.disabled = false;
+                            editBtn.disabled = false;
+                            deleteBtn.textContent = 'Delete';
+                        }
+                        showStatus('Error deleting button: ' + (result.message || 'Unknown error'), 'error');
+                    }
+                })
+                .catch(function(error) {
+                    // Rollback on error
+                    if (buttonItem) {
+                        buttonItem.style.opacity = '1';
+                        buttonItem.style.pointerEvents = 'auto';
+                        const deleteBtn = buttonItem.querySelector('.btn-delete');
+                        const editBtn = buttonItem.querySelector('.btn-secondary');
+                        deleteBtn.disabled = false;
+                        editBtn.disabled = false;
+                        deleteBtn.textContent = 'Delete';
+                    }
+                    showStatus('Error deleting button: ' + error.message, 'error');
+                });
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+            statusEl.style.display = 'block';
+
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        // Show/hide loading spinner
+        function showLoading(show) {
+            document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+        }
+
+            // Initialize on load
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initializePage);
+            } else {
+                initializePage();
+            }
+
+            // Color selection functions
+            function selectColor(color) {
+                document.getElementById('buttonColor').value = color;
+                // Update visual selection
+                document.querySelectorAll('.color-option').forEach(btn => {
+                    if (btn.dataset.color === color) {
+                        btn.style.boxShadow = '0 0 0 3px rgba(255, 215, 0, 0.8)';
+                        btn.style.transform = 'scale(1.05)';
+                    } else {
+                        btn.style.boxShadow = 'none';
+                        btn.style.transform = 'scale(1)';
+                    }
+                });
+            }
+
+            function selectBulkColor(color) {
+                document.getElementById('bulkButtonColor').value = color;
+                // Update visual selection
+                document.querySelectorAll('.bulk-color-option').forEach(btn => {
+                    if (btn.dataset.color === color) {
+                        btn.style.boxShadow = '0 0 0 3px rgba(255, 215, 0, 0.8)';
+                        btn.style.transform = 'scale(1.05)';
+                    } else {
+                        btn.style.boxShadow = 'none';
+                        btn.style.transform = 'scale(1)';
+                    }
+                });
+            }
+
+            // Expose necessary functions to global scope for onclick handlers
+            window.toggleCreationMode = toggleCreationMode;
+            window.toggleTargetType = toggleTargetType;
+            window.toggleInputType = toggleInputType;
+            window.handleCheckboxChange = handleCheckboxChange;
+            window.previewButton = previewButton;
+            window.saveButton = saveButton;
+            window.cancelCreation = cancelCreation;
+            window.editButton = editButton;
+            window.deleteButton = deleteButton;
+            window.selectColor = selectColor;
+            window.selectBulkColor = selectBulkColor;
+            window.toggleButtonSelection = toggleButtonSelection;
+            window.selectAllButtons = selectAllButtons;
+            window.bulkDeleteButtons = bulkDeleteButtons;
+
+        })(); // End IIFE
+    </script>
+</body>
+</html>

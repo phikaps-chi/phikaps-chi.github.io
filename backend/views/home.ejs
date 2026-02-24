@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#0a0a0a">
+    <title>Brotherhood Portal</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        .background-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
+            z-index: -1;
+            pointer-events: none; 
+        }
+
+        /* --- CSS SCROLL & LAYOUT FIX --- */
+        html { 
+            height: 100%; 
+            width: 100%;
+            overflow: hidden; 
+        }
+        
+        body {
+            width: 100%; 
+            height: 100%; 
+            overflow-y: auto; 
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch; 
+            
+            /* Make transparent so we see the fixed overlay behind it */
+            background-color: transparent; 
+            
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffd700; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* FORCE CONTENT TO FRONT */
+        #app-shell { 
+            opacity: 1; 
+            transition: opacity 0.5s ease-in;
+            position: relative; /* Creates a new stacking context */
+            z-index: 1;         /* Sits on top of the z-index -1 background */
+            min-height: 100%;   /* Ensures it fills the scroll view */
+        }
+
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 1rem; 
+            padding-bottom: 5rem;
+            display: flow-root; /* Prevents margin collapse clipping top content */
+        }
+        /* ---------------------- */
+
+        #loader-wrapper {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #0a0a0a; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; gap: 1rem;
+            z-index: 9999; transition: opacity 0.75s ease-out;
+        }
+        .loader {
+            border: 8px solid #333; border-top: 8px solid #ffd700;
+            border-radius: 50%; width: 60px; height: 60px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .header { position: relative; text-align: center; margin-bottom: 2rem; margin-top: 1rem; }
+        .logo {
+            width: 70px; height: 70px; background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+            border-radius: 50%; margin: 0 auto 0.8rem; display: flex;
+            align-items: center; justify-content: center; font-size: 1.8rem;
+            font-weight: bold; border: 2px solid #ffd700; color: #000;
+            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.3);
+        }
+        .title { font-size: 2rem; font-weight: 300; margin-bottom: 0.3rem; letter-spacing: 1px; }
+        .subtitle { font-size: 1rem; opacity: 0.8; font-weight: 300; }
+        
+        .sign-out-btn {
+            position: absolute; top: 0.5rem; right: 0.5rem;
+            background: transparent; border: 2px solid #ffd700;
+            color: #ffd700; padding: 0.4rem 0.8rem; border-radius: 1rem;
+            font-size: 0.9rem; cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .sign-out-btn:hover { background: #ffd700; color: #333; }
+        
+        .back-to-home-btn {
+            display: inline-block; padding: 0.6rem 1.2rem; margin-bottom: 1.5rem;
+            background: #ffd700; color: #1a1a1a; border-radius: 25px;
+            text-decoration: none; font-weight: 600; font-size: 0.9rem;
+            border: 2px solid #ffd700; transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.2);
+        }
+        .back-to-home-btn:hover {
+            background: transparent; color: #ffd700; transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
+        }
+        
+        .main-navigation { display: grid; grid-template-columns: 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        
+        .nav-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: #ffd700;
+            transition: all 0.3s ease;
+            border: 2px solid #ffd700;
+            box-shadow: 0 8px 32px rgba(255, 215, 0, 0.1);
+            text-align: center;
+
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: pan-y;
+        }
+        
+        .nav-card.long-press-ready, 
+        .nav-card.dragging {
+            touch-action: none;
+            cursor: grabbing;
+        }
+        
+        .nav-card:hover {
+            transform: translateY(-5px);
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.3); border-color: #ffed4a;
+        }
+        .nav-icon { font-size: 2.2rem; margin-bottom: 0.8rem; display: block; }
+        .nav-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.4rem; }
+        .nav-description { font-size: 0.85rem; opacity: 0.8; line-height: 1.3; }
+        
+        .calendar-section { margin-bottom: 2rem; }
+        .calendar-container {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(20, 20, 20, 0.95) 100%);
+            border-radius: 20px; padding: 1.5rem; border: 2px solid #ffd700;
+        }
+        .calendar-wrapper { position: relative; width: 100%; height: 0; padding-bottom: 75%; border-radius: 15px; overflow: hidden; }
+        .calendar-iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+
+        /* Search Bar Styles */
+        .search-section { margin-bottom: 2rem; }
+        .search-container { position: relative; max-width: 600px; margin: 0 auto; }
+        .search-input {
+            width: 100%;
+            padding: 1rem 3rem 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 50px;
+            color: #ffd700;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        .search-input:focus {
+            outline: none; border-color: #ffd700;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
+        }
+        .search-input::placeholder { color: rgba(255, 215, 0, 0.5); }
+        .search-input:disabled { opacity: 0.5; cursor: not-allowed; background: rgba(255, 255, 255, 0.02); }
+        .search-icon {
+            position: absolute; right: 1.5rem; top: 50%;
+            transform: translateY(-50%); font-size: 1.2rem;
+            color: rgba(255, 215, 0, 0.6); pointer-events: none;
+        }
+        .clear-search {
+            position: absolute; right: 3.5rem; top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255, 215, 0, 0.2);
+            border: none; color: #ffd700;
+            width: 24px; height: 24px; border-radius: 50%;
+            cursor: pointer; font-size: 1rem;
+            display: none; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .clear-search.visible { display: flex; }
+        .clear-search:hover { background: rgba(255, 215, 0, 0.4); }
+        .nav-card.hidden { display: none; }
+        .no-results {
+            text-align: center; padding: 3rem 1rem;
+            color: rgba(255, 215, 0, 0.6); font-size: 1.1rem;
+        }
+
+        .welcome-section, .welcome-card, .header, .search-section, .calendar-section {
+            -webkit-user-drag: none;
+            -webkit-touch-callout: none;
+            user-select: text;
+            -webkit-user-select: text;
+            touch-action: auto;
+            pointer-events: auto;
+        }
+
+        /* Edit Mode Styles */
+        .edit-mode-banner {
+            position: fixed; top: 0; left: 0; right: 0;
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4a 100%);
+            color: #000; padding: 0.8rem 1rem;
+            text-align: center; font-weight: 600;
+            z-index: 1000; box-shadow: 0 4px 12px rgba(255, 215, 0, 0.4);
+            display: none; align-items: center; justify-content: center; gap: 1rem;
+        }
+        .edit-mode-banner.visible { display: flex; }
+        .edit-mode-banner .done-btn {
+            background: #000; color: #ffd700; border: none;
+            padding: 0.5rem 1.5rem; border-radius: 20px;
+            font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+        }
+        .edit-mode-banner .done-btn:hover { background: #1a1a1a; transform: scale(1.05); }
+        .nav-card.dragging { opacity: 0.5; transform: scale(0.95); }
+        .nav-card.drag-over {
+            border-color: #ffed4a;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 215, 0, 0.15) 100%);
+        }
+        .nav-card:active { cursor: grabbing; }
+
+        .nav-card.long-press-ready {
+            animation: pulse 0.5s ease-in-out;
+            transform: scale(1.02);
+            box-shadow: 0 12px 30px rgba(255, 215, 0, 0.5);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1.02); }
+        }
+        body.edit-mode { padding-top: 4rem; }
+        body.edit-mode .nav-card { cursor: grab !important; pointer-events: auto; }
+        body.edit-mode .nav-card:active { cursor: grabbing !important; }
+
+        @media (min-width: 480px) { .main-navigation { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 768px) { .main-navigation { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 1024px) { .main-navigation { grid-template-columns: repeat(4, 1fr); } }
+        
+        #dev-password-modal {
+            display: none; position: fixed; z-index: 10000; top: 0; left: 0;
+            width: 100vw; height: 100vh; background: rgba(10,10,10,0.97);
+            color: #ffd700; align-items: center; justify-content: center; flex-direction: column;
+        }
+        #dev-password-form { display: flex; flex-direction: column; gap: 1.2rem; align-items: center; }
+        #dev-password-form input {
+            padding: 0.7em 1em; border-radius: 1.2em; border: 2px solid #ffd700;
+            background: #181818; color: #ffd700; font-size: 1.1rem;
+        }
+        #dev-password-form button {
+            padding: 0.7em 1.8em; border-radius: 1.2em; border: none;
+            background: #ffd700; color: #222; font-size: 1.1rem;
+            font-weight: 600; cursor: pointer;
+        }
+        #dev-password-form button:hover { background: #fff59d; }
+        #dev-password-error { color: #f66; font-size: 0.98rem; }
+    </style>
+</head>
+<body>
+    <div class="background-overlay"></div>
+    <div id="loader-wrapper">
+        <div class="loader"></div>
+        <span>Loading...</span>
+    </div>
+    <div id="dev-password-modal">
+      <form id="dev-password-form">
+        <h2>Developer Access</h2>
+        <p style="color:#fff;font-size:1rem;opacity:0.8;">Enter password to access dev environment</p>
+        <input id="dev-password-input" type="password" placeholder="Password" autocomplete="off">
+        <button>Enter</button>
+        <div id="dev-password-error"></div>
+      </form>
+    </div>
+    <div id="app-shell"></div>
+    <script>
+        const USER_EMAIL = '<%- email %>';
+        const USER_POSITION = '<%- position %>';
+        var BASE_URL = '<%- baseUrl %>';
+        const SESSION_ID = '<%- sessionId %>' || localStorage.getItem('PHIKAPS_SESSION') || '';
+        console.log('Home - SESSION_ID:', SESSION_ID ? 'SET' : 'EMPTY', '(length:', SESSION_ID ? SESSION_ID.length : 0, ')');
+        
+        let initialHomePageData = null;
+        let customButtonsData = {}; 
+        const appShell = document.getElementById('app-shell');
+        const loader = document.getElementById('loader-wrapper');
+
+        // ----- Dev Password Logic -----
+        function checkDevPassword() {
+            const modal = document.getElementById('dev-password-modal');
+            modal.style.display = 'flex';
+            const form = document.getElementById('dev-password-form');
+            const input = document.getElementById('dev-password-input');
+            const errorDiv = document.getElementById('dev-password-error');
+            form.onsubmit = function(e) {
+                e.preventDefault();
+                errorDiv.textContent = '';
+                showLoader();
+                fetch(BASE_URL + '/api/verify-dev-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: input.value })
+                })
+                .then(r => r.json())
+                .then(function(result) {
+                    hideLoader();
+                    if (result.valid) {
+                        modal.style.display = 'none';
+                        sessionStorage.setItem('DEV_PASSWORD_OK', 'true');
+                        loadHomePageNormally();
+                    } else {
+                        errorDiv.textContent = 'Incorrect password. Please try again.';
+                        input.value = ''; input.focus();
+                    }
+                })
+                .catch(function() {
+                    hideLoader();
+                    errorDiv.textContent = 'Error verifying password. Try again.';
+                });
+            };
+            setTimeout(()=>{input.focus();}, 250);
+        }
+
+        // API call queue — sequential processing with retry
+        const apiQueue = [];
+        let isApiProcessing = false;
+
+        function enqueueApiCall(functionName, args, successHandler, failureHandler) {
+            return new Promise((resolve, reject) => {
+                apiQueue.push({ functionName, args, successHandler, failureHandler, resolve, reject });
+                processApiQueue();
+            });
+        }
+
+        function processApiQueue() {
+            if (isApiProcessing || apiQueue.length === 0) return;
+            isApiProcessing = true;
+            const { functionName, args, successHandler, failureHandler, resolve, reject } = apiQueue.shift();
+
+            apiCall(functionName, args)
+                .then(function(result) {
+                    if (successHandler) successHandler(result);
+                    resolve(result);
+                    isApiProcessing = false;
+                    processApiQueue();
+                })
+                .catch(function(error) {
+                    console.error('API call failed, requeueing...', error);
+                    apiQueue.unshift({ functionName, args, successHandler, failureHandler, resolve, reject });
+                    isApiProcessing = false;
+                    setTimeout(() => processApiQueue(), 1000);
+                });
+        }
+
+        function apiCall(functionName, args) {
+            const url = BASE_URL + '/api/' + functionName + '?session_id=' + encodeURIComponent(SESSION_ID);
+            return fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ args: args })
+            }).then(r => { if (!r.ok) throw new Error('API error ' + r.status); return r.json(); });
+        }
+
+        function handleNavigation(e) {
+            if (isEditMode) { e.preventDefault(); return; }
+            const link = e.target.closest('a');
+            if (link && link.dataset.page) {
+                e.preventDefault();
+                const pageId = link.dataset.buttonId || link.dataset.id;
+                loadView(link.dataset.page, pageId);
+            }
+        }
+
+        function cleanupPageSpecificElements() {
+          const mobileDrawer = document.getElementById('mobileDrawer');
+          if (mobileDrawer) mobileDrawer.remove();
+          const overlay = document.getElementById('drawerOverlay');
+          if (overlay) overlay.remove();
+        }
+
+        function loadView(page, id) {
+            cleanupPageSpecificElements();
+            showLoader();
+            const qs = '?session_id=' + encodeURIComponent(SESSION_ID);
+            switch (page) {
+                case 'home':
+                    fetch(BASE_URL + '/api/home-data' + qs)
+                        .then(r => r.json())
+                        .then(data => { initialHomePageData = data; renderHomePage(data); hideLoader(); })
+                        .catch(err => { console.error('Error reloading home:', err); renderHomePage(initialHomePageData); hideLoader(); });
+                    break;
+                case 'rusharchives': fetch(BASE_URL + '/api/views/rusharchives' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
+                case 'rushpage': fetch(BASE_URL + '/api/views/rushpage' + qs + '&id=' + encodeURIComponent(id)).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
+                case 'rankChoice': fetch(BASE_URL + '/api/views/rankchoice' + qs + '&id=' + encodeURIComponent(id)).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
+                case 'rostermanagement': fetch(BASE_URL + '/api/views/rostermanagement' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
+                case 'buttonmanager': fetch(BASE_URL + '/api/views/buttonmanager' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
+                case 'customhtml': renderCustomHtmlPage(id); break;
+                default: renderDynamicPage('<p style="color:red;">Error: Page not found.</p>'); break;
+            }
+        }
+
+        function renderHomePage(data) {
+            if (!data) return;
+            if (data.customButtons && data.customButtons.length > 0) {
+                data.customButtons.forEach(button => {
+                    if (button.isHtml) customButtonsData[button.id] = button.content;
+                });
+            }
+
+            let validCards = data.navCards.filter(c => (c.href||c.page)?.trim());
+            if (USER_POSITION.includes('Pledge')) validCards = validCards.filter(c=>c.restrict!=='Pledge');
+            
+            const homeHtml = `
+                <div class="edit-mode-banner" id="editModeBanner">
+                    <span>✨ Edit Mode - Drag buttons to reorder</span>
+                    <button class="done-btn" onclick="exitEditMode()">Done</button>
+                </div>
+                <div class="container" id="main-content">
+                    <header class="header">
+                        <div class="logo">ΦKΣ</div>
+                        <button class="sign-out-btn" onclick="signOut()">Sign Out</button>
+                        <h1 class="title">Brotherhood Portal</h1>
+                        <p class="subtitle">Alpha Mu</p>
+                    </header>
+                    <section class="welcome-section" style="margin-bottom:2rem;">
+                        <div class="welcome-card" style="border-radius:20px; border:2px solid #ffd700; padding:1.5rem; text-align:center;">
+                             <h2 class="welcome-title" style="font-size: 1.6rem; font-weight: 600; color: #ffd700;">${data.welcomeMessage}</h2>
+                             <p style="font-size: 0.9rem; line-height: 1.4; color: #e0e0e0;">Welcome to the Brotherhood Portal.</p>
+                        </div>
+                    </section>
+                    <section class="search-section">
+                        <div class="search-container">
+                            <input type="text" id="buttonSearch" class="search-input" placeholder="🔍 Search buttons and resources..." autocomplete="off" />
+                            <button class="clear-search" id="clearSearch">×</button>
+                            <span class="search-icon">🔍</span>
+                        </div>
+                    </section>
+                    <div id="noResults" class="no-results" style="display: none;">No buttons found matching your search.</div>
+                    <nav class="main-navigation" id="mainNavigationContainer">
+                        ${validCards.map((card, index) => {
+                            const isPage = !!card.page;
+                            const href = isPage? '#' : (card.href||'#');
+                            const tgt = isPage? '' : 'target="_blank" rel="noopener noreferrer"';
+                            const attrs = isPage? `data-page="${card.page}" ${card.id?`data-id="${card.id}"`:''}` : '';
+                            const icon = card.icon || '';
+                            const iconHtml = icon ? `<div class="nav-icon">${icon}</div>` : '';
+                            const cardId = `nav-${card.page || 'link'}-${card.id || index}`;
+                            return `<a href="${href}" ${tgt} ${attrs} class="nav-card" data-card-id="${cardId}" draggable="true">` +
+                                   iconHtml + `<div class="nav-title">${card.title}</div><div class="nav-description">${card.description}</div></a>`;
+                        }).join('')}
+                        ${data.customButtons && data.customButtons.length > 0 ?
+                            data.customButtons.map(button => {
+                                const iconHtml = button.icon ? `<div class="nav-icon">${button.icon}</div>` : '';
+                                const descHtml = button.description ? `<div class="nav-description">${button.description}</div>` : '';
+                                const cardId = `custom-${button.id}`;
+                                const borderStyle = `border-color: ${button.color || '#ffd700'};`;
+                                if (button.isHtml) {
+                                    return `<a href="#" data-page="customhtml" data-button-id="${button.id}" class="nav-card" data-card-id="${cardId}" draggable="true" style="${borderStyle}">
+                                        ${iconHtml}<div class="nav-title">${button.name}</div>${descHtml}</a>`;
+                                } else {
+                                    return `<a href="${button.content}" target="_blank" rel="noopener noreferrer" class="nav-card" data-card-id="${cardId}" draggable="true" style="${borderStyle}">
+                                        ${iconHtml}<div class="nav-title">${button.name}</div>${descHtml}</a>`;
+                                }
+                            }).join('') : ''
+                        }
+                    </nav>
+                    <section class="calendar-section">
+                        <div class="calendar-container">
+                            <div class="calendar-wrapper">
+                                <iframe class="calendar-iframe" src="https://calendar.google.com/calendar/embed?src=52b22ac3b06e9c052e55617f0c6009a036374111c7ec2780620fb454cc7f191c%40group.calendar.google.com&ctz=America%2FNew_York" style="border: 0" width="800" height="600" frameborder="0" scrolling="no"></iframe>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            `;
+            appShell.innerHTML = homeHtml;
+            initializeSearch();
+            initializeDragAndDrop();
+            loadButtonOrder();
+        }
+
+        function initializeSearch() {
+            const searchInput = document.getElementById('buttonSearch');
+            const clearBtn = document.getElementById('clearSearch');
+            const navCards = document.querySelectorAll('.nav-card');
+            const noResults = document.getElementById('noResults');
+
+            if (!searchInput) return; 
+
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                if (searchTerm.length > 0) clearBtn.classList.add('visible');
+                else clearBtn.classList.remove('visible');
+
+                let visibleCount = 0;
+                navCards.forEach(card => {
+                    const title = card.querySelector('.nav-title')?.textContent.toLowerCase() || '';
+                    const description = card.querySelector('.nav-description')?.textContent.toLowerCase() || '';
+                    if (searchTerm === '' || (title + ' ' + description).includes(searchTerm)) {
+                        card.classList.remove('hidden');
+                        visibleCount++;
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+                if (visibleCount === 0 && searchTerm.length > 0) noResults.style.display = 'block';
+                else noResults.style.display = 'none';
+            });
+
+            clearBtn.addEventListener('click', function() {
+                searchInput.value = '';
+                clearBtn.classList.remove('visible');
+                navCards.forEach(card => card.classList.remove('hidden'));
+                noResults.style.display = 'none';
+                searchInput.focus();
+            });
+
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    searchInput.value = '';
+                    clearBtn.classList.remove('visible');
+                    navCards.forEach(card => card.classList.remove('hidden'));
+                    noResults.style.display = 'none';
+                }
+            });
+        }
+
+        let isEditMode = false;
+        let draggedElement = null;
+        let allButtonsBeforeFilter = [];
+        let scrollInterval = null;
+        let touchStartY = 0;
+        let touchStartX = 0;
+        let isTouchDragging = false;
+        let touchClone = null;
+        let mousePressTimer = null;
+        let mouseStartX = 0;
+        let mouseStartY = 0;
+
+        function initializeDragAndDrop() {
+            const container = document.getElementById('mainNavigationContainer');
+            if (!container) return;
+            const navCards = container.querySelectorAll('.nav-card');
+            console.log('🎯 INITIALIZING DRAG AND DROP -', navCards.length, 'cards found');
+
+            navCards.forEach((card, idx) => {
+                const cardTitle = card.querySelector('.nav-title')?.textContent;
+                console.log(`   Card ${idx}: ${cardTitle}, draggable="${card.getAttribute('draggable')}"`);
+
+                card.addEventListener('mousedown', handleMouseDown);
+                card.addEventListener('mouseup', handleMouseUp);
+                card.addEventListener('mousemove', handleMouseMove);
+                card.addEventListener('dragstart', handleDragStart);
+                card.addEventListener('dragend', handleDragEnd);
+                card.addEventListener('dragover', handleDragOver);
+                card.addEventListener('drop', handleDrop);
+                card.addEventListener('dragleave', handleDragLeave);
+
+                // Mobile touch events
+                card.addEventListener('touchstart', handleTouchStart, { passive: true });
+                card.addEventListener('touchmove', handleTouchMove, { passive: false });
+                card.addEventListener('touchend', handleTouchEnd);
+                card.addEventListener('touchcancel', handleTouchCancel);
+
+                card.addEventListener('contextmenu', (e) => { e.preventDefault(); return false; });
+            });
+            document.addEventListener('dragover', handleDocumentDragOver);
+            console.log('   ✅ All event listeners attached');
+        }
+
+        function setCardsDraggable(enabled) {
+            console.log('🔄 SETTING CARDS DRAGGABLE:', enabled);
+            const container = document.getElementById('mainNavigationContainer');
+            if (!container) return;
+            container.querySelectorAll('.nav-card').forEach(card => {
+              card.setAttribute('draggable', enabled ? 'true' : 'false');
+            });
+            console.log('   ✅ First card draggable is now:', container.querySelector('.nav-card')?.getAttribute('draggable'));
+        }
+        
+        function handleMouseDown(e) {
+            console.log('🖱️ MOUSEDOWN - isEditMode:', isEditMode, 'target:', e.target.closest('.nav-card')?.querySelector('.nav-title')?.textContent);
+
+            // Don't interfere if already in edit mode or if it's a link click
+            if (isEditMode) return;
+
+            const card = e.target.closest('.nav-card');
+            if (!card) return;
+
+            mouseStartX = e.clientX;
+            mouseStartY = e.clientY;
+
+            // Clear any existing timer
+            if (mousePressTimer) clearTimeout(mousePressTimer);
+
+            // Start a long-press timer (500ms like mobile)
+            mousePressTimer = setTimeout(() => {
+                console.log('   → Long press detected, entering edit mode');
+                enterEditMode();
+                // Make cards draggable immediately
+                setCardsDraggable(true);
+                mousePressTimer = null;
+            }, 500);
+        }
+
+        function handleMouseUp(e) {
+            if (mousePressTimer) {
+                clearTimeout(mousePressTimer);
+                mousePressTimer = null;
+            }
+        }
+
+        function handleMouseMove(e) {
+            // If mouse moves too much during press, cancel the long-press
+            if (mousePressTimer) {
+                const moveX = Math.abs(e.clientX - mouseStartX);
+                const moveY = Math.abs(e.clientY - mouseStartY);
+                if (moveX > 10 || moveY > 10) {
+                    clearTimeout(mousePressTimer);
+                    mousePressTimer = null;
+                }
+            }
+        }
+
+        function handleTouchStart(e) {
+            if (e.touches.length > 1) return;
+            const touch = e.touches[0];
+            touchStartY = touch.clientY;
+            touchStartX = touch.clientX;
+            
+            if (this.longPressTimer) clearTimeout(this.longPressTimer);
+            isTouchDragging = false;
+            
+            this.longPressTimer = setTimeout(() => {
+                isTouchDragging = true;
+                this.classList.add('long-press-ready');
+                this.classList.add('dragging');
+                if (!isEditMode) enterEditMode();
+                if (navigator.vibrate) navigator.vibrate(50);
+                draggedElement = this;
+                createTouchClone(this, touch);
+            }, 500); 
+        }
+
+        function handleTouchMove(e) {
+            const touch = e.touches[0];
+            if (!isTouchDragging) {
+                const moveY = Math.abs(touch.clientY - touchStartY);
+                const moveX = Math.abs(touch.clientX - touchStartX);
+                if (moveY > 10 || moveX > 10) {
+                    if (this.longPressTimer) {
+                        clearTimeout(this.longPressTimer);
+                        this.longPressTimer = null;
+                    }
+                }
+                return;
+            }
+        
+            if (isTouchDragging) {
+                if (e.cancelable) e.preventDefault(); 
+                e.stopPropagation();
+                updateTouchClonePosition(touch);
+                
+                const viewportHeight = window.innerHeight;
+                const scrollThreshold = 120;
+                const scrollSpeed = 15;
+                const scrollElement = document.body; 
+                
+                if (touch.clientY > viewportHeight - scrollThreshold) {
+                    if (!scrollInterval) {
+                        scrollInterval = setInterval(() => {
+                            const calendarSection = document.querySelector('.calendar-section');
+                            const maxScroll = calendarSection ? calendarSection.offsetTop - 100 : Infinity;
+                            if (scrollElement.scrollTop < maxScroll) scrollElement.scrollTop += scrollSpeed;
+                        }, 16);
+                    }
+                } else if (touch.clientY < scrollThreshold) {
+                    if (!scrollInterval) {
+                        scrollInterval = setInterval(() => {
+                            if (scrollElement.scrollTop > 0) scrollElement.scrollTop -= scrollSpeed;
+                        }, 16);
+                    }
+                } else {
+                    if (scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; }
+                }
+        
+                const elementBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                const cardBelow = elementBelow?.closest('.nav-card');
+                if (cardBelow && cardBelow !== draggedElement && cardBelow.parentNode === draggedElement.parentNode) {
+                    const container = document.getElementById('mainNavigationContainer');
+                    const allCards = [...container.querySelectorAll('.nav-card')];
+                    const draggedIndex = allCards.indexOf(draggedElement);
+                    const targetIndex = allCards.indexOf(cardBelow);
+                    if (draggedIndex < targetIndex) cardBelow.parentNode.insertBefore(draggedElement, cardBelow.nextSibling);
+                    else cardBelow.parentNode.insertBefore(draggedElement, cardBelow);
+                }
+            }
+        }
+
+        function handleTouchEnd(e) { cleanupTouchState.call(this); }
+        function handleTouchCancel(e) { cleanupTouchState.call(this); }
+
+        function cleanupTouchState() {
+            if (this.longPressTimer) { clearTimeout(this.longPressTimer); this.longPressTimer = null; }
+            if (isTouchDragging) {
+                isTouchDragging = false;
+                if (touchClone) { touchClone.remove(); touchClone = null; }
+                if (scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; }
+                this.classList.remove('long-press-ready');
+                this.classList.remove('dragging');
+                saveButtonOrder();
+            }
+            draggedElement = null;
+            document.querySelectorAll('.nav-card').forEach(c => c.classList.remove('drag-over'));
+        }
+
+        function createTouchClone(elem, touch) {
+            if (touchClone) touchClone.remove();
+            touchClone = elem.cloneNode(true);
+            touchClone.style.position = 'fixed';
+            touchClone.style.pointerEvents = 'none';
+            touchClone.style.opacity = '0.9';
+            touchClone.style.zIndex = '10000';
+            touchClone.style.width = elem.offsetWidth + 'px';
+            touchClone.style.height = elem.offsetHeight + 'px';
+            touchClone.style.transform = 'scale(1.05)';
+            touchClone.style.boxShadow = '0 10px 20px rgba(0,0,0,0.5)';
+            touchClone.style.background = '#1a1a1a'; 
+            document.body.appendChild(touchClone);
+            updateTouchClonePosition(touch);
+        }
+
+        function updateTouchClonePosition(touch) {
+            if (touchClone) {
+                touchClone.style.left = (touch.clientX - touchClone.offsetWidth / 2) + 'px';
+                touchClone.style.top = (touch.clientY - touchClone.offsetHeight / 2) + 'px';
+            }
+        }
+
+        function handleDragStart(e) {
+            console.log('🚀 DRAGSTART - card:', this.querySelector('.nav-title')?.textContent, 'draggable:', this.getAttribute('draggable'), 'isEditMode:', isEditMode);
+            const searchInput = document.getElementById('buttonSearch');
+            const hasActiveSearch = searchInput && searchInput.value.trim().length > 0;
+
+            if (!isEditMode) {
+                console.log('   → Entering edit mode from dragstart');
+                enterEditMode();
+            }
+
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+
+            if (hasActiveSearch) {
+                const dragImage = this.cloneNode(true);
+                dragImage.style.position = 'absolute'; dragImage.style.top = '-9999px'; dragImage.style.opacity = '0.8';
+                document.body.appendChild(dragImage);
+                e.dataTransfer.setDragImage(dragImage, e.offsetX, e.offsetY);
+                setTimeout(() => dragImage.remove(), 0);
+            }
+            e.stopPropagation();
+            console.log('   ✅ Dragstart complete - draggedElement set');
+        }
+
+        function handleDocumentDragOver(e) {
+            if (!draggedElement) return;
+            e.preventDefault(); e.stopPropagation();
+
+            const scrollThreshold = 150; 
+            const scrollSpeed = 15; 
+            const viewportHeight = window.innerHeight;
+            const mouseY = e.clientY;
+            const scrollElement = document.body;
+            const calendarSection = document.querySelector('.calendar-section');
+            const maxScroll = calendarSection ? calendarSection.offsetTop - 100 : Infinity;
+
+            if (mouseY > viewportHeight - scrollThreshold) {
+                if (!scrollInterval) {
+                    scrollInterval = setInterval(() => {
+                        const currentScroll = scrollElement.scrollTop || window.pageYOffset;
+                        if (currentScroll < maxScroll) {
+                            scrollElement.scrollTop += scrollSpeed;
+                            window.scrollBy(0, scrollSpeed);
+                        } else { clearInterval(scrollInterval); scrollInterval = null; }
+                    }, 16);
+                }
+            } else if (mouseY < scrollThreshold) {
+                if (!scrollInterval) {
+                    scrollInterval = setInterval(() => {
+                        scrollElement.scrollTop -= scrollSpeed;
+                        window.scrollBy(0, -scrollSpeed);
+                    }, 16);
+                }
+            } else {
+                if (scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; }
+            }
+        }
+
+        function handleDragEnd(e) {
+            console.log('🏁 DRAGEND - card:', this.querySelector('.nav-title')?.textContent);
+            this.classList.remove('dragging');
+            document.querySelectorAll('.nav-card').forEach(card => card.classList.remove('drag-over'));
+            if (scrollInterval) { clearInterval(scrollInterval); scrollInterval = null; }
+            draggedElement = null;
+            console.log('   → Saving button order');
+            saveButtonOrder();
+        }
+
+        function handleDragOver(e) {
+            if (e.preventDefault) e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const cardTitle = this.querySelector('.nav-title')?.textContent;
+            if (this !== draggedElement) {
+                console.log('📍 DRAGOVER - hovering over:', cardTitle);
+                this.classList.add('drag-over');
+            }
+            return false;
+        }
+        function handleDragLeave(e) { this.classList.remove('drag-over'); }
+
+        function handleDrop(e) {
+            console.log('💧 DROP - dropped on:', this.querySelector('.nav-title')?.textContent);
+            if (e.stopPropagation) e.stopPropagation();
+            e.preventDefault();
+            if (draggedElement !== this) {
+                const container = document.getElementById('mainNavigationContainer');
+                const allCards = [...container.querySelectorAll('.nav-card')];
+                const draggedIndex = allCards.indexOf(draggedElement);
+                const targetIndex = allCards.indexOf(this);
+                console.log('   → Moving from index', draggedIndex, 'to', targetIndex);
+                if (draggedIndex < targetIndex) this.parentNode.insertBefore(draggedElement, this.nextSibling);
+                else this.parentNode.insertBefore(draggedElement, this);
+                console.log('   → Saving new order');
+                saveButtonOrder();
+            }
+            this.classList.remove('drag-over');
+            return false;
+        }
+
+        function enterEditMode() {
+            console.log('🔧 ENTERING EDIT MODE');
+            isEditMode = true; document.body.classList.add('edit-mode'); setCardsDraggable(true);
+            const banner = document.getElementById('editModeBanner');
+            if (banner) banner.classList.add('visible');
+            const navCards = document.querySelectorAll('.nav-card');
+            allButtonsBeforeFilter = [];
+            navCards.forEach(card => {
+                allButtonsBeforeFilter.push({ element: card, wasHidden: card.classList.contains('hidden') });
+                card.classList.remove('hidden');
+            });
+            const searchInput = document.getElementById('buttonSearch');
+            if (searchInput) {
+                searchInput.value = ''; searchInput.disabled = true;
+                searchInput.placeholder = '✨ Edit mode active - drag buttons to reorder';
+            }
+            const clearBtn = document.getElementById('clearSearch');
+            if (clearBtn) clearBtn.classList.remove('visible');
+            const noResults = document.getElementById('noResults');
+            if (noResults) noResults.style.display = 'none';
+            console.log('   ✅ Edit mode active - cards draggable:', document.querySelector('.nav-card')?.getAttribute('draggable'));
+        }
+
+        function exitEditMode() {
+            console.log('🔓 EXITING EDIT MODE');
+            isEditMode = false; document.body.classList.remove('edit-mode'); setCardsDraggable(false);
+            const banner = document.getElementById('editModeBanner');
+            if (banner) banner.classList.remove('visible');
+            const searchInput = document.getElementById('buttonSearch');
+            if (searchInput) {
+                searchInput.disabled = false; searchInput.value = '';
+                searchInput.placeholder = '🔍 Search buttons and resources...';
+            }
+            const clearBtn = document.getElementById('clearSearch');
+            if (clearBtn) clearBtn.classList.remove('visible');
+            const navCards = document.querySelectorAll('.nav-card');
+            navCards.forEach(card => card.classList.remove('hidden'));
+            allButtonsBeforeFilter = [];
+            saveButtonOrder();
+            console.log('   ✅ Edit mode exited - cards draggable:', document.querySelector('.nav-card')?.getAttribute('draggable'));
+        }
+
+        function saveButtonOrder() {
+            const container = document.getElementById('mainNavigationContainer');
+            if (!container) return;
+            const cards = container.querySelectorAll('.nav-card');
+            const order = Array.from(cards).map(card => card.dataset.cardId);
+            localStorage.setItem('PKS_BUTTON_ORDER', JSON.stringify(order));
+            fetch(BASE_URL + '/api/save-button-order?session_id=' + encodeURIComponent(SESSION_ID), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ buttonOrder: order })
+            }).catch(err => console.error('Error saving button order:', err));
+        }
+
+        function loadButtonOrder() {
+            let savedOrder = localStorage.getItem('PKS_BUTTON_ORDER');
+            if (savedOrder) applyButtonOrder(savedOrder);
+            fetch(BASE_URL + '/api/load-button-order?session_id=' + encodeURIComponent(SESSION_ID), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({})
+            })
+            .then(r => r.json())
+            .then(function(serverOrder) {
+                if (serverOrder && serverOrder.length > 0) {
+                    const serverOrderString = JSON.stringify(serverOrder);
+                    if (serverOrderString !== savedOrder) {
+                        localStorage.setItem('PKS_BUTTON_ORDER', serverOrderString);
+                        applyButtonOrder(serverOrderString);
+                    }
+                }
+            })
+            .catch(err => console.error('Error loading button order:', err));
+        }
+
+        function applyButtonOrder(savedOrder) {
+            if (!savedOrder) return;
+            try {
+                const order = JSON.parse(savedOrder);
+                const container = document.getElementById('mainNavigationContainer');
+                if (!container) return;
+                const cards = container.querySelectorAll('.nav-card');
+                const cardMap = new Map();
+                cards.forEach(card => {
+                    const cardId = card.dataset.cardId;
+                    if (cardId) cardMap.set(cardId, card);
+                });
+                order.forEach((cardId) => {
+                    const card = cardMap.get(cardId);
+                    if (card) container.appendChild(card);
+                });
+            } catch (e) { console.error('Error loading button order:', e); }
+        }
+
+        function renderDynamicPage(htmlString) {
+            const backButton = `<a href="#" data-page="home" class="back-to-home-btn">🏠 Back to Portal Home</a>`;
+            const frag = document.createRange().createContextualFragment(htmlString);
+            const scripts = Array.from(frag.querySelectorAll('script'));
+            appShell.innerHTML = `<div class="container">${backButton}</div>`;
+            appShell.querySelector('.container').appendChild(frag);
+            setTimeout(() => {
+                scripts.forEach(s => {
+                    const ns = document.createElement('script');
+                    ns.textContent = `(function(){\n${s.textContent}\n})();`;
+                    document.body.appendChild(ns).parentNode.removeChild(ns);
+                });
+                hideLoader();
+            }, 0);
+        }
+
+        function renderCustomHtmlPage(buttonId) {
+            const backButton = `<a href="#" data-page="home" class="back-to-home-btn">🏠 Back to Portal Home</a>`;
+            const htmlContent = customButtonsData[buttonId];
+            if (!htmlContent) { renderDynamicPage('<p style="color:red;">Error: Button content not found.</p>'); return; }
+            const iframeHtml = `<div class="container">${backButton}<div style="margin-top: 1rem;"><iframe id="custom-html-iframe" style="width: 100%; height: calc(100vh - 120px); border: 2px solid #ffd700; border-radius: 10px; background: white;" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-top-navigation-by-user-activation" srcdoc="${htmlContent.replace(/"/g, '&quot;')}"></iframe></div></div>`;
+            appShell.innerHTML = iframeHtml;
+            hideLoader();
+        }
+
+        function showLoader() { loader.style.display='flex'; appShell.style.opacity='0.5'; setTimeout(()=>loader.style.opacity='1',10); }
+        function hideLoader() { loader.style.opacity='0'; appShell.style.opacity='1'; setTimeout(()=>loader.style.display='none',750); }
+        function signOut() {
+            try {
+                localStorage.removeItem('PHIKAPS_SESSION');
+                localStorage.removeItem('PKS_ID_TOKEN');
+                sessionStorage.removeItem('DEV_PASSWORD_OK');
+                window.top.postMessage({type: "SESSION_EXPIRED", message: "Your session has expired. Please sign in again."}, "*");
+                setTimeout(() => { window.top.location.reload(); }, 500);
+            } catch (e) { window.top.location.reload(); }
+        }
+        function loadHomePageNormally() {
+            fetch(BASE_URL + '/api/home-data?session_id=' + encodeURIComponent(SESSION_ID))
+                .then(r => r.json())
+                .then(data => { initialHomePageData = data; renderHomePage(data); hideLoader(); })
+                .catch(err => { appShell.innerHTML = `<div class="container"><h2 style="color:red">Load error</h2><p>${err.message}</p></div>`; hideLoader(); });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            document.body.addEventListener('click', handleNavigation);
+            if (BASE_URL.includes('dev')) {
+                if (sessionStorage.getItem('DEV_PASSWORD_OK') === 'true') loadHomePageNormally();
+                else checkDevPassword();
+            } else loadHomePageNormally();
+        });
+    </script>
+</body>
+</html>

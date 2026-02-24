@@ -1,0 +1,3145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ranked Choice Voting</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* Reset and Base Styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    :root {
+      --primary-gold: #FFD700;
+      --secondary-gold: #FFA500;
+      --bg-dark: #0a0a0a;
+      --bg-secondary: #1a1a1a;
+      --bg-card: rgba(255, 255, 255, 0.05);
+      --border-color: rgba(255, 215, 0, 0.2);
+      --text-primary: #ffffff;
+      --text-secondary: #b8b8b8;
+      --success: #4CAF50;
+      --error: #f44336;
+      --shadow-gold: rgba(255, 215, 0, 0.3);
+      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+      position: relative;
+      z-index: 10;
+    }
+
+    .header h1 {
+      font-size: clamp(2rem, 5vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, var(--primary-gold), var(--secondary-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+      text-shadow: 0 0 30px var(--shadow-gold);
+    }
+
+    /* SSE Status Indicator */
+    .sse-status {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .sse-status.connected {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+      color: #4CAF50;
+    }
+
+    .sse-status.disconnected {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.4);
+      color: #f44336;
+    }
+
+    .sse-status.reconnecting {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.4);
+      color: #FFC107;
+    }
+
+    .sse-status.stale {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.4);
+      color: #FFC107;
+    }
+
+    .sse-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Optimistic/Loading Poll State */
+    .poll-card.optimistic {
+      position: relative;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .poll-card.optimistic::after {
+      content: 'Creating poll...';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: var(--primary-gold);
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-weight: 600;
+      z-index: 10;
+      animation: pulse 2s infinite;
+    }
+
+    .poll-card.optimistic .poll-content {
+      filter: blur(2px);
+    }
+
+    /* Active Users Display */
+    .active-users {
+      text-align: center;
+      margin-bottom: 1rem;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+
+    .user-chip {
+      background: rgba(255, 255, 255, 0.08);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      flex: 0 0 auto;
+    }
+
+    .you-chip {
+      background: var(--primary-gold);
+      color: #000;
+      border: 1px solid var(--primary-gold);
+    }
+
+    /* Button Styles */
+    .btn {
+      background: linear-gradient(135deg, var(--primary-gold), var(--secondary-gold));
+      color: #000;
+      border: none;
+      padding: 12px 28px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      transition: var(--transition);
+      box-shadow: 0 4px 20px var(--shadow-gold);
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px var(--shadow-gold);
+    }
+
+    .btn:disabled {
+      background: #333333 !important;   /* Force dark gray background */
+      color: #888888 !important;        /* Dim the text color */
+      box-shadow: none !important;      /* Remove the gold glow */
+      border: 1px solid #444444;        /* Add a subtle border */
+      cursor: not-allowed;
+      transform: none;
+      opacity: 1;                       /* Reset opacity so the gray is solid */
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-primary);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 12px 24px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: var(--transition);
+      box-shadow: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-delete {
+      background: transparent;
+      color: var(--error);
+      border: 1px solid rgba(244, 67, 54, 0.3);
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: var(--transition);
+    }
+
+    .btn-delete:hover {
+      background: rgba(244, 67, 54, 0.1);
+      border-color: var(--error);
+    }
+
+    /* Main Container */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Create Poll Button */
+    .create-poll-section {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    /* Poll List */
+    .polls-list {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .poll-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 32px;
+      transition: var(--transition);
+    }
+
+    .poll-card:hover {
+      border-color: var(--primary-gold);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(255, 215, 0, 0.2);
+    }
+
+    .poll-card.closed {
+      border-color: rgba(244, 67, 54, 0.3);
+    }
+
+    .poll-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .poll-title-section {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .poll-status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .poll-status-badge.active {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+      color: #4CAF50;
+    }
+
+    .poll-status-badge.closed {
+      background: rgba(244, 67, 54, 0.2);
+      border: 1px solid rgba(244, 67, 54, 0.4);
+      color: #f44336;
+    }
+
+    .poll-question {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary-gold);
+      margin-bottom: 8px;
+    }
+
+    .poll-meta {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .poll-actions {
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+
+    .vote-status {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .vote-status.voted {
+      background: rgba(76, 175, 80, 0.2);
+      border: 1px solid rgba(76, 175, 80, 0.4);
+      color: #4CAF50;
+    }
+
+    .vote-status.not-voted {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.4);
+      color: #FFC107;
+    }
+
+    .poll-options-preview {
+      margin: 16px 0;
+      padding: 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 215, 0, 0.1);
+    }
+
+    .poll-options-preview h4 {
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .options-preview-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .option-chip {
+      background: rgba(255, 215, 0, 0.1);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      color: var(--text-primary);
+    }
+
+    /* Poll Content - Always Visible */
+    .poll-content {
+      display: block;
+      margin-top: 24px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* Voting Interface */
+    .ranking-container {
+      margin-bottom: 24px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .ranking-items {
+      touch-action: pan-y;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .ranking-instructions {
+      background: rgba(255, 193, 7, 0.1);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    .ranked-item {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      cursor: move;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+
+    .ranked-item:hover {
+      background: rgba(255, 215, 0, 0.15);
+      border-color: var(--primary-gold);
+      transform: translateX(4px);
+    }
+
+    .ranked-item.dragging {
+      opacity: 0.5;
+      transform: scale(0.98);
+    }
+
+    .rank-number {
+      background: var(--primary-gold);
+      color: #000;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .option-text {
+      flex: 1;
+      font-size: 16px;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+
+    .drag-handle {
+      color: var(--text-secondary);
+      font-size: 20px;
+      cursor: grab;
+    }
+
+    .drag-handle:active {
+      cursor: grabbing;
+    }
+
+    /* Results Section */
+    /* --- UPDATED RESULTS SECTION --- */
+    .results-container {
+      margin-bottom: 24px;
+      width: 100%; /* Ensure it doesn't exceed parent */
+      overflow-x: hidden; /* Prevent internal spillover */
+    }
+
+    .winner-announcement {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
+      border: 2px solid var(--primary-gold);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 24px;
+      text-align: center;
+      /* Fix for mobile text overflow */
+      word-wrap: break-word;
+      overflow-wrap: break-word; 
+      max-width: 100%;
+    }
+
+    .winner-announcement .winner-name {
+      /* Use clamp for responsive font size */
+      font-size: clamp(24px, 6vw, 36px); 
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-gold), var(--secondary-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+
+    .chart-container {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 16px; /* Reduced padding */
+      margin-bottom: 24px;
+      /* Critical for Chart.js mobile responsiveness */
+      position: relative; 
+      width: 100%;
+      height: auto;
+      aspect-ratio: 16/9; /* Maintain aspect ratio */
+    }
+
+    .result-item {
+      margin-bottom: 20px;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      /* Allow wrapping on very small screens */
+      flex-wrap: wrap; 
+      gap: 8px;
+    }
+
+    .result-name {
+      font-weight: 600;
+      font-size: 16px;
+      /* Prevent long option names from pushing width */
+      word-break: break-word; 
+      max-width: 100%;
+    }
+
+    /* Elimination Rounds Container (Class we will add in JS) */
+    .elimination-rounds-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    /* --- MOBILE OVERRIDES --- */
+    /* FIXED */
+@media (max-width: 768px) {
+  .poll-card {
+    padding: 16px; 
+    overflow-x: hidden; /* Safety net for internal spills */
+  }
+  
+  .chart-container {
+    padding: 10px;
+    margin-left: 0; /* Reset margin */
+    width: 100%; /* Keep it contained */
+    box-sizing: border-box;
+  }
+
+  .chart-container canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  
+  .result-score {
+    font-size: 15px;
+  }
+
+  .result-header {
+    align-items: flex-start;
+  }
+}
+
+    .results-container h4 {
+      color: var(--primary-gold);
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+
+    .winner-announcement {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 165, 0, 0.2));
+      border: 2px solid var(--primary-gold);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .winner-announcement h3 {
+      font-size: 28px;
+      color: var(--primary-gold);
+      margin-bottom: 8px;
+    }
+
+    .winner-announcement .winner-name {
+      font-size: clamp(24px, 6vw, 36px); 
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--primary-gold), var(--secondary-gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+      line-height: 1.2;
+      
+      /* ADD THESE LINES */
+      white-space: normal;
+      word-wrap: break-word;
+      word-break: break-word;
+      hyphens: auto;
+    }
+
+    .winner-announcement .winner-details {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .chart-container {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .chart-container canvas {
+      max-height: 400px;
+    }
+
+    .result-item {
+      margin-bottom: 20px;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .result-name {
+      font-weight: 600;
+      font-size: 16px;
+      /* ADD THESE LINES */
+      white-space: normal;
+      word-wrap: break-word;
+      word-break: break-word;
+      max-width: 70%; /* Give space for the score on the right */
+    }
+
+    .result-score {
+      color: var(--primary-gold);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .result-bar-container {
+      background: rgba(255, 255, 255, 0.05);
+      height: 32px;
+      border-radius: 16px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .result-bar {
+      background: linear-gradient(90deg, var(--primary-gold), var(--secondary-gold));
+      height: 100%;
+      border-radius: 16px;
+      transition: width 0.5s ease;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #000;
+    }
+
+    .vote-count {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    .total-votes {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Create Poll Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(10px);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 32px;
+      max-width: 600px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-header {
+      margin-bottom: 24px;
+    }
+
+    .modal-header h2 {
+      color: var(--primary-gold);
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--primary-gold);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .form-group input,
+    .form-group textarea,
+    .form-group select {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      border-radius: 12px;
+      padding: 12px 16px;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: inherit;
+      transition: var(--transition);
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--primary-gold);
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.1);
+    }
+
+    .threshold-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .threshold-option {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(255, 215, 0, 0.2);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .threshold-option:hover {
+      background: rgba(255, 215, 0, 0.1);
+      border-color: var(--primary-gold);
+    }
+
+    .threshold-option.selected {
+      background: rgba(255, 215, 0, 0.2);
+      border-color: var(--primary-gold);
+    }
+
+    .threshold-option input[type="radio"] {
+      display: none;
+    }
+
+    .threshold-option label {
+      cursor: pointer;
+      display: block;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .threshold-option .threshold-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .options-list {
+      margin-bottom: 20px;
+    }
+
+    .option-item {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    .option-item input {
+      flex: 1;
+    }
+
+    .remove-option-btn {
+      background: var(--error);
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: var(--transition);
+    }
+
+    .remove-option-btn:hover {
+      background: #d32f2f;
+    }
+
+    .add-option-btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--primary-gold);
+      border: 1px solid rgba(255, 215, 0, 0.3);
+      padding: 10px 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: var(--transition);
+      width: 100%;
+    }
+
+    .add-option-btn:hover {
+      background: rgba(255, 215, 0, 0.2);
+      border-color: var(--primary-gold);
+    }
+
+    /* Loading and Messages */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.95);
+      backdrop-filter: blur(10px);
+      z-index: 3000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .spinner {
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid var(--primary-gold);
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .message {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 14px 24px;
+      border-radius: 12px;
+      font-weight: 500;
+      z-index: 2000;
+      display: none;
+      max-width: 90%;
+      text-align: center;
+    }
+
+    .message.success {
+      background: var(--success);
+      color: white;
+    }
+
+    .message.error {
+      background: var(--error);
+      color: white;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .no-polls {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-secondary);
+    }
+
+    .no-polls h3 {
+      font-size: 24px;
+      margin-bottom: 12px;
+    }
+
+    .no-polls p {
+      font-size: 16px;
+      margin-bottom: 24px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      body {
+        padding: 15px;
+      }
+
+      .poll-card {
+        padding: 20px;
+      }
+
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .poll-header {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .poll-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .modal-content {
+        padding: 24px;
+      }
+
+      .threshold-options {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- SSE Status Indicator -->
+  <div class="sse-status disconnected" id="sseStatus">
+    <span class="sse-status-dot"></span>
+    <span id="sseStatusText">Disconnected</span>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🗳️ Ranked Choice Voting</h1>
+    <button class="btn-secondary" onclick="openAlgorithmModal()" style="font-size: 13px; padding: 8px 16px; margin-top: 10px; border-color: rgba(255,255,255,0.1);">
+      ℹ️ How the Algorithm Works
+    </button>
+  </div>
+
+  <div class="container">
+    <!-- Active Users -->
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <div class="active-users" id="activeUsersDisplay">
+        <span>👥 Active Voters:</span>
+        <span class="user-chip">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Create Poll Button -->
+    <div class="create-poll-section">
+      <button class="btn" onclick="openCreatePollModal()">+ Create New Poll</button>
+      <div id="adminControls" style="display: none; margin-top: 1rem; gap: 12px; justify-content: center; flex-wrap: wrap;">
+        <button class="btn-secondary" onclick="closeAllPollsConfirm()" style="border-color: rgba(255, 193, 7, 0.4); color: #FFC107;">🔒 End All Active Polls</button>
+        <button class="btn-delete" onclick="deleteAllPollsConfirm()">🗑️ Delete All Closed Polls</button>
+      </div>
+    </div>
+
+    <!-- Polls List -->
+    <div class="polls-list" id="pollsList">
+      <!-- Poll cards will be inserted here -->
+    </div>
+
+    <!-- No Polls Message -->
+    <div class="no-polls hidden" id="noPolls">
+      <h3>No Polls</h3>
+      <p>Be the first to create a poll!</p>
+      <button class="btn" onclick="openCreatePollModal()">Create Poll</button>
+    </div>
+  </div>
+
+  <!-- Create Poll Modal -->
+  <div class="modal-overlay" id="createPollModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Create New Poll</h2>
+      </div>
+      <form id="createPollForm">
+        <div class="form-group">
+          <label for="pollQuestion">Question *</label>
+          <input type="text" id="pollQuestion" required placeholder="What should we vote on?">
+        </div>
+
+        <div class="form-group">
+          <label>Win Threshold *</label>
+          <div class="threshold-options">
+            <div class="threshold-option" onclick="selectThreshold(0.5, this)">
+              <input type="radio" name="threshold" value="0.5" id="threshold-50">
+              <label for="threshold-50">50%</label>
+              <div class="threshold-desc">Simple Majority</div>
+            </div>
+            <div class="threshold-option" onclick="selectThreshold(0.67, this)">
+              <input type="radio" name="threshold" value="0.67" id="threshold-67">
+              <label for="threshold-67">2/3</label>
+              <div class="threshold-desc">Two-Thirds</div>
+            </div>
+            <div class="threshold-option" onclick="selectThreshold(0.75, this)">
+              <input type="radio" name="threshold" value="0.75" id="threshold-75">
+              <label for="threshold-75">3/4</label>
+              <div class="threshold-desc">Three-Quarters</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Voting Privacy *</label>
+          <div class="threshold-options">
+            <div class="threshold-option" onclick="selectAnonymous(true, this); event.stopPropagation();">
+              <input type="radio" name="anonymous" value="true" id="anonymous-yes" onclick="event.stopPropagation();">
+              <label for="anonymous-yes">🔒 Anonymous</label>
+              <div class="threshold-desc">Hide voter names</div>
+            </div>
+            <div class="threshold-option" onclick="selectAnonymous(false, this); event.stopPropagation();">
+              <input type="radio" name="anonymous" value="false" id="anonymous-no" onclick="event.stopPropagation();">
+              <label for="anonymous-no">👁️ Public</label>
+              <div class="threshold-desc">Show voter names</div>
+            </div>
+          </div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 8px; padding: 8px; background: rgba(255, 193, 7, 0.1); border-radius: 8px;">
+            ⚠️ Note: Votes are stored in Google Sheets without encryption. Poll creators and sheet admins can view all data regardless of this setting.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Options (minimum 2) *</label>
+          <div class="options-list" id="optionsList">
+            <div class="option-item">
+              <input type="text" class="option-input" placeholder="Option 1" required>
+              <button type="button" class="remove-option-btn" onclick="removeOption(this)" disabled>✕</button>
+            </div>
+            <div class="option-item">
+              <input type="text" class="option-input" placeholder="Option 2" required>
+              <button type="button" class="remove-option-btn" onclick="removeOption(this)">✕</button>
+            </div>
+          </div>
+          <button type="button" class="add-option-btn" onclick="addOption()">+ Add Option</button>
+        </div>
+
+        <div style="display: flex; gap: 12px; justify-content: flex-end;">
+          <button type="button" class="btn-secondary" onclick="closeCreatePollModal()">Cancel</button>
+          <button type="submit" class="btn">🚀 Create Poll</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner"></div>
+    <span>Loading...</span>
+  </div>
+
+  <!-- Message Display -->
+  <div class="message" id="messageDisplay"></div>
+
+  <!-- How voting works overlay -->
+
+  <div class="modal-overlay" id="algorithmModal">
+    <div class="modal-content" style="max-width: 700px;">
+      <div class="modal-header">
+        <h2>How Ranked Choice Works</h2>
+      </div>
+      
+      <div style="color: var(--text-secondary); line-height: 1.6;">
+        <p style="margin-bottom: 20px;">
+          This app uses <strong>Instant Runoff Voting (IRV)</strong>. Instead of just picking one winner, you rank candidates in order of preference (1st, 2nd, 3rd...).
+        </p>
+
+        <h3 style="color: var(--primary-gold); font-size: 18px; margin-bottom: 12px;">The Counting Process:</h3>
+        
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: flex; gap: 16px; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+            <div style="background: var(--primary-gold); color: black; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">1</div>
+            <div>
+              <strong style="color: var(--text-primary);">Count First Choices</strong>
+              <div style="font-size: 14px; margin-top: 4px;">Everyone's #1 choice is counted. If a candidate gets more than 50% (or the set threshold) of the votes, they win immediately!</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 16px; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+            <div style="background: var(--primary-gold); color: black; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">2</div>
+            <div>
+              <strong style="color: var(--text-primary);">Elimination Round</strong>
+              <div style="font-size: 14px; margin-top: 4px;">If no one wins, the candidate with the <strong>fewest votes</strong> is eliminated.</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 16px; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+            <div style="background: var(--primary-gold); color: black; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">3</div>
+            <div>
+              <strong style="color: var(--text-primary);">Redistribute Votes</strong>
+              <div style="font-size: 14px; margin-top: 4px;">The ballots for the eliminated candidate are moved to those voters' <strong>next choice</strong>. Their vote still counts, just for their #2 pick!</div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 16px; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px;">
+            <div style="background: var(--primary-gold); color: black; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; flex-shrink: 0;">4</div>
+            <div>
+              <strong style="color: var(--text-primary);">Repeat</strong>
+              <div style="font-size: 14px; margin-top: 4px;">This process repeats—eliminating the last place and moving votes up—until one candidate crosses the winning threshold.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 24px; text-align: right;">
+        <button class="btn" onclick="closeAlgorithmModal()">Got it</button>
+      </div>
+    </div>
+  </div>
+
+</body>
+
+  <script>
+    (function() {
+    // Global variables
+    var currentUser = '<%- name %>'; // User's display name for UI
+    var currentUserEmail = '<%- email %>'; // User's email for validation
+    // Use template-provided sessionId (this works both standalone and when dynamically loaded)
+    // When dynamically loaded, the parent's SESSION_ID is used via home.html's call to getRankChoicePage
+    var RANK_SESSION_ID = '<%- sessionId %>';
+    // Fallback to parent scope SESSION_ID only if template value is empty (shouldn't happen in production)
+    if (!RANK_SESSION_ID && typeof SESSION_ID !== 'undefined') {
+      RANK_SESSION_ID = SESSION_ID;
+    }
+    var SSE_URL = 'https://sse-server-4rzn.onrender.com';
+    var eventSource = null;
+    var reconnectTimeout = null;
+    var reconnectAttempts = 0;
+    var maxReconnectAttempts = 10;
+    var reconnectDelay = 1000;
+    var activeUsers = [];
+    var allPolls = [];
+    var currentDragPollId = null;
+    var draggedElement = null;
+    var selectedThreshold = 0.5;
+    // Track anonymous selection state
+    var selectedAnonymous = true;
+    var pollCharts = {};
+    var isDragging = false;
+    var isInModal = false;
+    var isInteractingWithPoll = false;
+    var updatePending = false;
+    var updateDeferTimeout = null;
+
+    // Check if running in dev mode (uses server-side IS_DEV flag)
+    var isAdmin = <%- isAdmin %>;
+
+    // API Replay Queue
+    const apiQueue = [];
+    let isApiProcessing = false;
+
+    function enqueueApiCall(functionName, args, successHandler, failureHandler) {
+        return new Promise((resolve, reject) => {
+            apiQueue.push({ functionName, args, successHandler, failureHandler, resolve, reject });
+            processApiQueue();
+        });
+    }
+
+    function processApiQueue() {
+        if (isApiProcessing || apiQueue.length === 0) return;
+        isApiProcessing = true;
+        const { functionName, args, successHandler, failureHandler, resolve, reject } = apiQueue.shift();
+
+        const endpointMap = {
+            'createRankedChoicePoll': { method: 'POST', url: '/api/polls', bodyFn: (a) => ({ question: a[0], options: a[1], threshold: a[3], isAnonymous: a[4] }) },
+            'createPoll': { method: 'POST', url: '/api/polls', bodyFn: (a) => ({ question: a[0], options: a[1], threshold: a[2], isAnonymous: a[3] }) },
+            'getAllActiveRankedChoicePolls': { method: 'GET', url: '/api/polls' },
+            'submitRankedChoiceVote': { method: 'POST', url: '/api/polls/{0}/vote', bodyFn: (a) => ({ ranking: a[2] }), paramIdx: 0 },
+            'closeRankedChoicePoll': { method: 'POST', url: '/api/polls/{0}/close', paramIdx: 0 },
+            'deleteRankedChoicePoll': { method: 'DELETE', url: '/api/polls/{0}', paramIdx: 0 },
+            'resetPollVotes': { method: 'POST', url: '/api/polls/{0}/reset', paramIdx: 0 },
+        };
+
+        const endpoint = endpointMap[functionName];
+        if (!endpoint) {
+            const err = new Error('Unknown API function: ' + functionName);
+            if (failureHandler) failureHandler(err);
+            reject(err);
+            isApiProcessing = false;
+            processApiQueue();
+            return;
+        }
+
+        let url = endpoint.url;
+        if (endpoint.paramIdx !== undefined) {
+            url = url.replace('{0}', encodeURIComponent(args[endpoint.paramIdx]));
+        }
+        url += window.location.search;
+
+        const options = { method: endpoint.method, headers: {} };
+        if (endpoint.bodyFn) {
+            options.headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(endpoint.bodyFn(args));
+        }
+
+        fetch(url, options)
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+                if (successHandler) successHandler(result);
+                resolve(result);
+                isApiProcessing = false;
+                processApiQueue();
+            })
+            .catch(function(error) {
+                console.error('API call failed:', error);
+                if (failureHandler) failureHandler(error);
+                reject(error);
+                isApiProcessing = false;
+                processApiQueue();
+            });
+    }
+
+    // SSE Connection Management
+    function connectSSE() {
+      if (eventSource && eventSource.readyState !== EventSource.CLOSED) {
+        return;
+      }
+
+      updateSSEStatus('reconnecting');
+
+      try {
+        eventSource = new EventSource(
+          `${SSE_URL}/sse?user=${encodeURIComponent(currentUser)}&context=rankchoice`
+        );
+
+        eventSource.onopen = function() {
+          updateSSEStatus('connected');
+          reconnectAttempts = 0;
+          reconnectDelay = 1000;
+        };
+
+        eventSource.onmessage = function(event) {
+          try {
+            var data = JSON.parse(event.data);
+
+            if (data.refresh) {
+              handleRealtimeUpdate();
+            }
+
+            if (Array.isArray(data.activeUsers)) {
+              activeUsers = dedupeActiveUsers(data.activeUsers);
+              renderActiveUsers();
+            }
+          } catch (e) {
+            console.error('Error parsing SSE message:', e);
+          }
+        };
+
+        eventSource.onerror = function(error) {
+          console.error('SSE connection error:', error);
+          updateSSEStatus('disconnected');
+          eventSource.close();
+
+          if (reconnectAttempts < maxReconnectAttempts) {
+            reconnectTimeout = setTimeout(function() {
+              reconnectAttempts++;
+              reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+              connectSSE();
+            }, reconnectDelay);
+          }
+        };
+      } catch (error) {
+        console.error('Failed to create SSE connection:', error);
+        updateSSEStatus('disconnected');
+      }
+    }
+
+    function disconnectSSE() {
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+        reconnectTimeout = null;
+      }
+      updateSSEStatus('disconnected');
+    }
+
+    function updateSSEStatus(status) {
+      var statusElement = document.getElementById('sseStatus');
+      var statusText = document.getElementById('sseStatusText');
+
+      if (statusElement && statusText) {
+        statusElement.className = 'sse-status ' + status;
+
+        switch(status) {
+          case 'connected':
+            statusText.textContent = 'Live';
+            break;
+          case 'disconnected':
+            statusText.textContent = 'Disconnected';
+            break;
+          case 'reconnecting':
+            statusText.textContent = 'Reconnecting...';
+            break;
+          case 'stale':
+            statusText.textContent = 'Refresh Pending';
+            break;
+        }
+      }
+    }
+
+    // Enhanced real-time update handler
+    function handleRealtimeUpdate() {
+      // If user is actively dragging, in modal, or interacting with poll, defer the update
+      if (isDragging || isInModal || isInteractingWithPoll) {
+        updatePending = true;
+        updateSSEStatus('stale');
+
+        // Set a maximum defer time of 10 seconds
+        if (!updateDeferTimeout) {
+          updateDeferTimeout = setTimeout(function() {
+            updatePending = false;
+            loadAllPolls();
+            updateSSEStatus('connected');
+          }, 10000);
+        }
+        return;
+      }
+
+      // Clear any defer timeout
+      if (updateDeferTimeout) {
+        clearTimeout(updateDeferTimeout);
+        updateDeferTimeout = null;
+      }
+
+      updatePending = false;
+      updateSSEStatus('connected');
+      loadAllPolls();
+    }
+
+    // Checks if a deferred update exists and applies it if the user is no longer busy
+    function applyPendingUpdate() {
+      if (updatePending && !isDragging && !isInModal && !isInteractingWithPoll) {
+        handleRealtimeUpdate();
+      }
+    }
+
+    // Active Users Management
+    function dedupeActiveUsers(arr) {
+      const cleaned = arr
+        .map(v => (v == null ? '' : String(v).trim()))
+        .filter(Boolean);
+      return Array.from(new Set(cleaned));
+    }
+
+    function renderActiveUsers() {
+      const el = document.getElementById('activeUsersDisplay');
+      if (!el) return;
+
+      const you = activeUsers.filter(u => u === currentUser);
+      const others = activeUsers.filter(u => u !== currentUser);
+      const names = [...you.map(() => 'you'), ...others];
+
+      el.innerHTML = '<span>👥 Active Voters:</span>';
+
+      if (!names.length) {
+        const chip = document.createElement('span');
+        chip.className = 'user-chip';
+        chip.textContent = 'None';
+        el.appendChild(chip);
+        return;
+      }
+
+      names.forEach(name => {
+        const chip = document.createElement('span');
+        chip.className = 'user-chip' + (name === 'you' ? ' you-chip' : '');
+        chip.textContent = name;
+        el.appendChild(chip);
+      });
+    }
+
+    // Modal Management
+    function openCreatePollModal() {
+      isInModal = true;
+
+      // Clear all selections when opening modal - force users to make choices
+      document.querySelectorAll('.threshold-option').forEach(opt => opt.classList.remove('selected'));
+      document.querySelectorAll('input[name="threshold"]').forEach(radio => radio.checked = false);
+      document.querySelectorAll('input[name="anonymous"]').forEach(radio => radio.checked = false);
+
+      // Reset the form to clear any previous inputs
+      document.getElementById('createPollForm').reset();
+
+      // Reset options to default 2
+      const optionsList = document.getElementById('optionsList');
+      optionsList.innerHTML = `
+        <div class="option-item">
+          <input type="text" class="option-input" placeholder="Option 1" required>
+          <button type="button" class="remove-option-btn" onclick="removeOption(this)" disabled>✕</button>
+        </div>
+        <div class="option-item">
+          <input type="text" class="option-input" placeholder="Option 2" required>
+          <button type="button" class="remove-option-btn" onclick="removeOption(this)">✕</button>
+        </div>
+      `;
+
+      document.getElementById('createPollModal').classList.add('active');
+    }
+
+    function closeCreatePollModal() {
+      isInModal = false;
+      document.getElementById('createPollModal').classList.remove('active');
+
+      // Re-enable submit button
+      const submitBtn = document.querySelector('#createPollForm button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+      }
+
+      // Apply any pending updates
+      applyPendingUpdate();
+    }
+
+    // Algorithm Modal Functions
+    function openAlgorithmModal() {
+      isInModal = true;
+      document.getElementById('algorithmModal').classList.add('active');
+    }
+
+    function closeAlgorithmModal() {
+      isInModal = false;
+      document.getElementById('algorithmModal').classList.remove('active');
+      applyPendingUpdate();
+    }
+
+    // Expose to global scope
+    window.openAlgorithmModal = openAlgorithmModal;
+    window.closeAlgorithmModal = closeAlgorithmModal;
+
+    function selectThreshold(value, element) {
+      selectedThreshold = value;
+      // Only remove 'selected' from threshold options
+      element.parentElement.querySelectorAll('.threshold-option').forEach(opt => opt.classList.remove('selected'));
+      element.classList.add('selected');
+      element.querySelector('input[type="radio"]').checked = true;
+    }
+
+    function selectAnonymous(value, element) {
+      console.log('selectAnonymous START - input value:', value, 'type:', typeof value);
+      console.log('selectedAnonymous BEFORE:', selectedAnonymous);
+
+      // Convert string to boolean if needed
+      if (typeof value === 'string') {
+        value = value === 'true';
+        console.log('Converted string to boolean:', value);
+      }
+
+      selectedAnonymous = value;
+      console.log('selectedAnonymous AFTER:', selectedAnonymous);
+      console.trace('Stack trace for selectAnonymous');
+
+      // Only remove 'selected' from anonymous options
+      element.parentElement.querySelectorAll('.threshold-option').forEach(opt => opt.classList.remove('selected'));
+      element.classList.add('selected');
+      element.querySelector('input[type="radio"]').checked = true;
+    }
+
+    // Option Management
+    function addOption() {
+      const optionsList = document.getElementById('optionsList');
+      const optionCount = optionsList.children.length + 1;
+
+      const optionItem = document.createElement('div');
+      optionItem.className = 'option-item';
+      optionItem.innerHTML = `
+        <input type="text" class="option-input" placeholder="Option ${optionCount}" required>
+        <button type="button" class="remove-option-btn" onclick="removeOption(this)">✕</button>
+      `;
+
+      optionsList.appendChild(optionItem);
+    }
+
+    function removeOption(btn) {
+      const optionsList = document.getElementById('optionsList');
+      if (optionsList.children.length <= 2) {
+        showMessage('You need at least 2 options', 'error');
+        return;
+      }
+      btn.parentElement.remove();
+      updateOptionPlaceholders();
+    }
+
+    function updateOptionPlaceholders() {
+      const inputs = document.querySelectorAll('.option-input');
+      inputs.forEach((input, index) => {
+        input.placeholder = `Option ${index + 1}`;
+      });
+    }
+
+    // Create Poll Form Handler
+    var isCreatingPoll = false; // Debounce flag
+
+    const form = document.getElementById('createPollForm');
+
+    // Check if we've already set up the handler
+    if (!form.dataset.handlerAttached) {
+      console.log('Setting up form submit listener');
+      form.dataset.handlerAttached = 'true';
+
+      function handlePollSubmit(e) {
+      console.log('=== FORM SUBMIT TRIGGERED ===');
+      e.preventDefault();
+      e.stopPropagation(); // Stop event from bubbling up
+      e.stopImmediatePropagation(); // Stop any other listeners
+
+      // Prevent duplicate submissions
+      if (isCreatingPoll) {
+        console.log('Poll creation already in progress, ignoring duplicate submission');
+        return;
+      }
+
+      // Set flag immediately to prevent double submissions
+      isCreatingPoll = true;
+      const submissionId = 'submit_' + Date.now() + '_' + Math.random();
+      console.log('isCreatingPoll set to true, submission ID:', submissionId);
+
+      const question = document.getElementById('pollQuestion').value.trim();
+
+      // Early exit if question is empty (form might be reset)
+      if (!question) {
+        isCreatingPoll = false;
+        return;
+      }
+
+      const optionInputs = document.querySelectorAll('#optionsList .option-input');
+      const options = Array.from(optionInputs)
+        .map(input => input.value.trim())
+        .filter(val => val);
+
+      // Get threshold directly from the checked radio button
+      const thresholdRadio = document.querySelector('input[name="threshold"]:checked');
+      if (!thresholdRadio) {
+        showMessage('Please select a win threshold', 'error');
+        isCreatingPoll = false;
+
+        // Re-enable submit button on validation error
+        const submitBtn = document.querySelector('#createPollForm button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = false;
+
+        return;
+      }
+      const threshold = parseFloat(thresholdRadio.value);
+
+      // Get anonymous directly from the checked radio button
+      const anonymousRadio = document.querySelector('input[name="anonymous"]:checked');
+      if (!anonymousRadio) {
+        showMessage('Please select voting privacy (Anonymous or Public)', 'error');
+        isCreatingPoll = false;
+
+        // Re-enable submit button on validation error
+        const submitBtn = document.querySelector('#createPollForm button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = false;
+
+        return;
+      }
+      const isAnonymous = (anonymousRadio.value === 'true');
+
+      if (options.length < 2) {
+        // Only show error if there's a question (user actually trying to submit)
+        if (question) {
+          showMessage('Please add at least 2 options', 'error');
+        }
+        isCreatingPoll = false;  // Reset the flag on validation error
+
+        // Re-enable submit button on validation error
+        const submitBtn = document.querySelector('#createPollForm button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = false;
+
+        return;
+      }
+
+      // Disable submit button immediately to prevent double clicks
+      const submitBtn = this.querySelector('button[type="submit"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+      }
+
+      // Debug what we got from the form
+      console.log('=== FORM VALUES ===');
+      console.log('Question:', question);
+      console.log('Threshold from radio:', threshold);
+      console.log('IsAnonymous from radio:', isAnonymous);
+      console.log('Options:', options);
+
+      // Create optimistic poll object
+      const optimisticPoll = {
+        id: 'temp_' + Date.now(),
+        question: question,
+        options: options,
+        votes: {},
+        creator: currentUser,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        threshold: threshold,
+        isAnonymous: isAnonymous,
+        isOptimistic: true
+      };
+
+      // Show success message immediately
+      showMessage('✓ Creating poll...', 'success');
+
+      // Add optimistic poll to the list and render immediately
+      allPolls.unshift(optimisticPoll);
+      renderPollsList();
+
+      // Close modal AFTER setting up the optimistic update
+      closeCreatePollModal();
+
+
+      console.log('About to call enqueueApiCall for submission:', submissionId);
+      enqueueApiCall(
+        'createPoll',
+        [question, options, threshold, isAnonymous, RANK_SESSION_ID],
+        function(pollId) {
+          console.log('Success handler called for submission:', submissionId, 'pollId:', pollId);
+          isCreatingPoll = false;
+          showMessage('✓ Poll created successfully!', 'success');
+
+          // Replace optimistic poll with real data
+          loadAllPolls();
+        },
+        function(error) {
+          isCreatingPoll = false;
+
+          // Remove optimistic poll on error
+          allPolls = allPolls.filter(p => p.id !== optimisticPoll.id);
+          renderPollsList();
+
+          showMessage('Error creating poll: ' + error.message, 'error');
+
+          // On mobile, offer to retry
+          if (isMobile()) {
+            setTimeout(() => {
+              if (confirm('Would you like to retry creating the poll?')) {
+                // Re-create the poll
+                isCreatingPoll = true;
+                allPolls.unshift(optimisticPoll);
+                renderPollsList();
+                showMessage('✓ Retrying...', 'success');
+
+                enqueueApiCall(
+                  'createRankedChoicePoll',
+                  [question, options, currentUserEmail, threshold, isAnonymous, RANK_SESSION_ID],
+                  function(pollId) {
+                    isCreatingPoll = false;
+                    showMessage('✓ Poll created successfully!', 'success');
+                    loadAllPolls();
+                  },
+                  function(error) {
+                    isCreatingPoll = false;
+                    allPolls = allPolls.filter(p => p.id !== optimisticPoll.id);
+                    renderPollsList();
+                    showMessage('Failed to create poll. Please try again later.', 'error');
+                  }
+                );
+
+              }
+            }, 1000);
+          }
+        }
+      );
+
+      console.log('Sent to backend - question:', question, 'threshold:', threshold, 'anonymous:', isAnonymous);
+      console.log('=== END OF FORM SUBMIT HANDLER ===');
+      }
+
+      // Attach the listener
+      form.addEventListener('submit', handlePollSubmit);
+    } else {
+      console.log('Form handler already attached, skipping duplicate setup');
+    }
+
+    // Load All Polls
+    function loadAllPolls(showLoadingIndicator = false) {
+      if (showLoadingIndicator && !isMobile()) {
+        showLoading();
+      }
+
+      // Add timeout handling for mobile
+      const timeoutId = setTimeout(() => {
+        if (isMobile()) {
+          showMessage('⚠️ Slow connection detected. Still loading...', 'error');
+        }
+      }, 5000); // Show warning after 5 seconds on mobile
+
+      enqueueApiCall(
+        'getAllActiveRankedChoicePolls',
+        [],
+        function(polls) {
+          clearTimeout(timeoutId);
+          if (showLoadingIndicator) hideLoading();
+          allPolls = polls || [];
+          renderPollsList();
+        },
+        function(error) {
+          clearTimeout(timeoutId);
+          if (showLoadingIndicator) hideLoading();
+          showMessage('Error loading polls: ' + error.message, 'error');
+
+          // Retry logic for mobile
+          if (isMobile()) {
+            setTimeout(() => {
+              showMessage('Retrying...', 'success');
+              loadAllPolls(false);
+            }, 2000);
+          }
+        }
+      );
+    }
+
+    // Render Polls List - smarter version that preserves interaction state
+    function renderPollsList() {
+      const listContainer = document.getElementById('pollsList');
+      const noPolls = document.getElementById('noPolls');
+
+      if (!allPolls || allPolls.length === 0) {
+        listContainer.innerHTML = '';
+        noPolls.classList.remove('hidden');
+        return;
+      }
+
+      noPolls.classList.add('hidden');
+
+      // If user is interacting with a poll, don't do a full re-render
+      if (isInteractingWithPoll) {
+        return;
+      }
+
+      listContainer.innerHTML = '';
+
+      allPolls.forEach(poll => {
+        const pollCard = createPollCard(poll);
+        listContainer.appendChild(pollCard);
+      });
+    }
+
+    function createPollCard(poll) {
+      const card = document.createElement('div');
+      card.className = 'poll-card' + (poll.status === 'closed' ? ' closed' : '') + (poll.isOptimistic ? ' optimistic' : '');
+      card.dataset.pollId = poll.id;
+
+      // Optimistic polls will be styled via CSS
+
+      const hasVoted = poll.votes && poll.votes[currentUser];
+      const voteCount = poll.votes ? Object.keys(poll.votes).length : 0;
+      const isCreator = poll.creator === currentUser; // Compare with name, not email
+      const isClosed = poll.status === 'closed';
+
+      const createdDate = new Date(poll.createdAt);
+      const formattedDate = createdDate.toLocaleDateString() + ' ' + createdDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      const thresholdPct = Math.round(poll.threshold * 100);
+
+      card.innerHTML = `
+        <div class="poll-header">
+          <div class="poll-title-section">
+            <div class="poll-status-badge ${poll.status}">${poll.status === 'active' ? '🔴 Active' : '🔒 Closed'}</div>
+            <div class="poll-question">${escapeHtml(poll.question)}</div>
+            <div class="poll-meta">Created by ${escapeHtml(poll.creator)} on ${formattedDate} • ${voteCount} vote${voteCount !== 1 ? 's' : ''} • ${thresholdPct}% threshold</div>
+          </div>
+          <div class="poll-actions">
+            ${!isClosed && hasVoted
+              ? '<div class="vote-status voted">✓ Voted</div>'
+              : !isClosed ? '<div class="vote-status not-voted">⚠ Not Voted</div>' : ''
+            }
+            ${isCreator && !isClosed
+              ? `<button class="btn-delete" onclick="closePollConfirm('${poll.id}')">End Poll</button>`
+              : ''
+            }
+            ${isCreator && isClosed
+              ? `<button class="btn-delete" onclick="deletePollConfirm('${poll.id}')">Delete Poll</button>`
+              : ''
+            }
+          </div>
+        </div>
+
+        <div class="poll-options-preview">
+          <h4>Options</h4>
+          <div class="options-preview-list">
+            ${poll.options.map(opt => `<div class="option-chip">${escapeHtml(opt)}</div>`).join('')}
+          </div>
+        </div>
+
+        <div class="poll-content" id="poll-content-${poll.id}">
+          ${!isClosed ? `
+          <!-- Voting Section -->
+          <div class="ranking-container">
+            <h4 style="color: var(--primary-gold); margin-bottom: 12px;">Your Ranking</h4>
+            <div class="ranking-instructions">
+              💡 <strong>Instructions:</strong> Drag options to rank them in order of preference. Your top choice should be #1.
+            </div>
+            <div class="ranking-items" id="ranking-${poll.id}">
+              <!-- Ranking items will be inserted here -->
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px;">
+              <button class="btn-secondary" onclick="resetRanking('${poll.id}')">Reset</button>
+              <button class="btn" onclick="submitVoteForPoll('${poll.id}')">
+                ${hasVoted ? 'Update Vote' : 'Submit Vote'}
+              </button>
+            </div>
+          </div>
+          ` : ''}
+
+          <!-- Results Section -->
+          <div class="results-container" id="results-${poll.id}">
+            <h4>${isClosed ? 'Final Results' : 'Live Results'}</h4>
+            <div id="results-content-${poll.id}">
+              <!-- Results will be rendered here -->
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Always render ranking and results
+      setTimeout(() => {
+        if (!isClosed) {
+          renderRankingForPoll(poll);
+        }
+        renderResultsForPoll(poll);
+      }, 0);
+
+      return card;
+    }
+
+    // Function removed - polls are now always expanded
+
+    function renderRankingForPoll(poll) {
+      const container = document.getElementById(`ranking-${poll.id}`);
+      if (!container) return;
+
+      container.innerHTML = '';
+
+      const hasVoted = poll.votes && poll.votes[currentUser];
+      let rankedOptions = [];
+
+      if (hasVoted && poll.votes[currentUser]) {
+        const userVote = poll.votes[currentUser];
+        // Show user's previous ranking
+        rankedOptions = userVote.map(optionName =>
+          poll.options.find(opt => opt === optionName) || optionName
+        );
+        // Add any new options that weren't in the previous vote
+        const unrankedOptions = poll.options.filter(opt => !rankedOptions.includes(opt));
+        rankedOptions = rankedOptions.concat(unrankedOptions);
+      } else {
+        // Show all options for initial ranking
+        rankedOptions = poll.options.slice();
+      }
+
+      // Render all options
+      rankedOptions.forEach((option, index) => {
+        const item = createRankedItem(option, index + 1, poll.id);
+        container.appendChild(item);
+      });
+    }
+
+    function createRankedItem(option, rankNum, pollId) {
+      const item = document.createElement('div');
+      item.className = 'ranked-item';
+      item.draggable = true;
+      item.dataset.option = option;
+      item.dataset.pollId = pollId;
+
+      item.innerHTML = `
+        <span class="rank-number">${rankNum}</span>
+        <span class="option-text">${escapeHtml(option)}</span>
+        <span class="drag-handle">☰</span>
+      `;
+
+      item.addEventListener('dragstart', handleDragStart);
+      item.addEventListener('dragenter', handleDragEnter);
+      item.addEventListener('dragover', handleDragOver);
+      item.addEventListener('drop', handleDrop);
+      item.addEventListener('dragend', handleDragEnd);
+
+      return item;
+    }
+
+    function renderResultsForPoll(poll) {
+      const container = document.getElementById(`results-content-${poll.id}`);
+      if (!container) return;
+
+      if (!poll.votes || Object.keys(poll.votes).length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No votes yet. Be the first to vote!</p>';
+        return;
+      }
+
+      // Hide results for anonymous polls until they're closed
+      if (poll.isAnonymous && poll.status !== 'closed') {
+        const voteCount = Object.keys(poll.votes).length;
+        container.innerHTML = `
+          <div style="text-align: center; padding: 32px; background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 12px;">
+            <div style="font-size: 48px; margin-bottom: 12px;">🔒</div>
+            <h3 style="color: var(--primary-gold); margin-bottom: 8px;">Results Hidden</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 4px;">This is an anonymous poll. Results will be revealed when the poll is ended.</p>
+            <p style="color: var(--text-secondary); font-size: 14px;">Current vote count: ${voteCount}</p>
+          </div>
+        `;
+        return;
+      }
+
+      const results = calculateInstantRunoff(poll.votes, poll.options);
+      const totalVotes = Object.keys(poll.votes).length;
+
+      // Always use instant runoff for all thresholds
+      const runoffResult = performInstantRunoff(poll.votes, poll.options, poll.threshold);
+      const winner = runoffResult.winner;
+      const eliminationRounds = runoffResult.rounds;
+
+      container.innerHTML = '';
+
+      // Show winner announcement for closed polls
+      if (poll.status === 'closed' && winner) {
+        const winnerDiv = document.createElement('div');
+        winnerDiv.className = 'winner-announcement';
+        winnerDiv.innerHTML = `
+          <h3>🏆 Winner</h3>
+          <div class="winner-name">${escapeHtml(winner.option)}</div>
+          <div class="winner-details">${winner.percentage ? winner.percentage.toFixed(1) : winner.score ? winner.score.toFixed(1) : 0}% of total votes</div>
+        `;
+        container.appendChild(winnerDiv);
+      } else if (poll.status === 'closed' && !winner) {
+        const noWinnerDiv = document.createElement('div');
+        noWinnerDiv.className = 'winner-announcement';
+        noWinnerDiv.innerHTML = `
+          <h3>❌ No Winner</h3>
+          <div class="winner-details">No option reached the ${Math.round(poll.threshold * 100)}% threshold after all elimination rounds</div>
+        `;
+        container.appendChild(noWinnerDiv);
+      }
+
+      // Show elimination rounds for instant runoff (only for non-anonymous polls to preserve privacy)
+      if (eliminationRounds.length > 0 && !poll.isAnonymous) {
+        const roundsDiv = document.createElement('div');
+        // Changed from inline styles to a class for better mobile control
+        roundsDiv.className = 'elimination-rounds-card';
+
+        let roundsHtml = '<h4 style="color: var(--primary-gold); margin-bottom: 16px;">Instant Runoff Rounds</h4>';
+
+        eliminationRounds.forEach((round, index) => {
+          roundsHtml += `<div style="margin-bottom: 16px; padding-bottom: 16px; ${index < eliminationRounds.length - 1 ? 'border-bottom: 1px solid rgba(255, 215, 0, 0.1);' : ''}">`;
+          roundsHtml += `<div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">Round ${index + 1}</div>`;
+
+          // Sort options by vote count
+          const sortedOptions = Object.entries(round.firstChoiceCounts)
+            .sort((a, b) => b[1] - a[1]);
+
+          roundsHtml += '<div style="margin-left: 8px; font-size: 13px; color: var(--text-secondary);">';
+          sortedOptions.forEach(([option, count]) => {
+            const pct = ((count / round.totalVotes) * 100).toFixed(1);
+            // Added word-break to ensure long names don't stretch the container
+            roundsHtml += `<div style="margin-bottom: 4px; word-break: break-word;">${escapeHtml(option)}: <strong>${count}</strong> (${pct}%)</div>`;
+          });
+          roundsHtml += '</div>';
+
+          if (round.winner) {
+            roundsHtml += `<div style="color: var(--success); margin-top: 8px; font-weight: 600; font-size: 14px;">✓ ${escapeHtml(round.winner)} wins (${round.winnerPercentage.toFixed(1)}%)</div>`;
+          } else if (round.eliminated) {
+            roundsHtml += `<div style="color: var(--error); margin-top: 8px; font-size: 14px;">✕ ${escapeHtml(round.eliminated)} eliminated</div>`;
+          } else if (round.noWinner) {
+            roundsHtml += `<div style="color: var(--error); margin-top: 8px; font-weight: 600; font-size: 14px;">✕ Below ${round.failedThreshold.toFixed(0)}% threshold</div>`;
+          }
+
+          roundsHtml += '</div>';
+        });
+
+        roundsDiv.innerHTML = roundsHtml;
+        container.appendChild(roundsDiv);
+      }
+
+      // Chart visualization for closed polls
+      if (poll.status === 'closed') {
+        const chartDiv = document.createElement('div');
+        chartDiv.className = 'chart-container';
+        chartDiv.innerHTML = '<canvas id="chart-' + poll.id + '"></canvas>';
+        container.appendChild(chartDiv);
+
+        // Render chart after DOM update
+        setTimeout(() => {
+          renderChart(poll.id, results);
+        }, 0);
+      }
+
+      // Bar chart results
+      const maxScore = Math.max(...results.map(r => r.score));
+
+      results.forEach((result, index) => {
+        const percentage = maxScore > 0 ? (result.score / maxScore * 100) : 0;
+
+        const resultItem = document.createElement('div');
+        resultItem.className = 'result-item';
+
+        let voterListHtml = '';
+        // Show voter names for non-anonymous polls (only first-choice voters)
+        if (!poll.isAnonymous && result.voters && result.voters.length > 0) {
+          voterListHtml = `
+            <div class="vote-count" style="margin-top: 8px;">
+              👥 First choice by: ${result.voters.map(v => escapeHtml(v)).join(', ')}
+            </div>
+          `;
+        }
+
+        resultItem.innerHTML = `
+          <div class="result-header">
+            <span class="result-name">${index + 1}. ${escapeHtml(result.option)}</span>
+            <span class="result-score">${result.score.toFixed(1)} pts</span>
+          </div>
+          <div class="result-bar-container">
+            <div class="result-bar" style="width: ${percentage}%">
+              ${percentage.toFixed(0)}%
+            </div>
+          </div>
+          <div class="vote-count">${result.firstChoiceVotes} first-choice vote${result.firstChoiceVotes !== 1 ? 's' : ''}</div>
+          ${voterListHtml}
+        `;
+
+        container.appendChild(resultItem);
+      });
+
+      const totalVotesDiv = document.createElement('div');
+      totalVotesDiv.className = 'total-votes';
+      totalVotesDiv.textContent = `Total Votes: ${totalVotes}`;
+      container.appendChild(totalVotesDiv);
+    }
+
+    function renderChart(pollId, results) {
+      const ctx = document.getElementById('chart-' + pollId);
+      if (!ctx) return;
+
+      // Destroy existing chart if any
+      if (pollCharts[pollId]) {
+        pollCharts[pollId].destroy();
+      }
+
+      const labels = results.map(r => r.option);
+
+      // Determine the maximum number of ranking positions (based on all options)
+      const maxPosition = Math.max(...results.map(r =>
+        Math.max(...Object.keys(r.votesByPosition).map(Number))
+      ));
+
+      // Create datasets for each ranking position
+      const colors = [
+        'rgba(255, 215, 0, 0.7)',   // 1st - Gold
+        'rgba(192, 192, 192, 0.7)',  // 2nd - Silver
+        'rgba(205, 127, 50, 0.7)',   // 3rd - Bronze
+        'rgba(100, 149, 237, 0.7)',  // 4th - Cornflower Blue
+        'rgba(147, 112, 219, 0.7)',  // 5th - Medium Purple
+        'rgba(60, 179, 113, 0.7)',   // 6th - Medium Sea Green
+        'rgba(255, 165, 0, 0.7)',    // 7th - Orange
+        'rgba(220, 20, 60, 0.7)',    // 8th - Crimson
+      ];
+
+      const datasets = [];
+      for (let position = 1; position <= maxPosition; position++) {
+        const positionData = results.map(r => r.votesByPosition[position] || 0);
+
+        // Get ordinal suffix (1st, 2nd, 3rd, etc.)
+        const suffix = position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th';
+
+        datasets.push({
+          label: `${position}${suffix} Place Votes`,
+          data: positionData,
+          backgroundColor: colors[(position - 1) % colors.length],
+          borderColor: colors[(position - 1) % colors.length].replace('0.7', '1'),
+          borderWidth: 2
+        });
+      }
+
+      pollCharts[pollId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                color: '#b8b8b8',
+                stepSize: 1
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              },
+              stacked: true
+            },
+            x: {
+              ticks: {
+                color: '#b8b8b8'
+              },
+              grid: {
+                color: 'rgba(255, 255, 255, 0.1)'
+              },
+              stacked: true
+            }
+          },
+          plugins: {
+            legend: {
+              labels: {
+                color: '#ffffff'
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return context.dataset.label + ': ' + context.parsed.y + ' vote' + (context.parsed.y !== 1 ? 's' : '');
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function determineWinner(results, totalVotes, threshold) {
+      if (results.length === 0 || totalVotes === 0) return null;
+
+      const topOption = results[0];
+      const percentage = topOption.firstChoiceVotes / totalVotes;
+
+      if (percentage >= threshold) {
+        return {
+          option: topOption.option,
+          score: topOption.score,
+          percentage: percentage * 100
+        };
+      }
+
+      return null;
+    }
+
+    // Drag and Drop Handlers
+    var dragStartIndex = -1;
+
+    function handleDragStart(e) {
+      isDragging = true;
+      draggedElement = this;
+      currentDragPollId = this.dataset.pollId;
+      this.classList.add('dragging');
+
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/html', this.innerHTML);
+    }
+
+    function handleDragEnter(e) {
+      // Required for drop to work
+      if (e.preventDefault) {
+        e.preventDefault();
+      }
+    }
+
+    function handleDragOver(e) {
+      if (e.preventDefault) {
+        e.preventDefault();
+      }
+
+      e.dataTransfer.dropEffect = 'move';
+
+      // Only handle if we're dragging within the same poll
+      if (!draggedElement || this === draggedElement) {
+        return false;
+      }
+
+      if (!this.classList.contains('ranked-item')) {
+        return false;
+      }
+
+      if (this.dataset.pollId !== currentDragPollId) {
+        return false;
+      }
+
+      // Get container and current positions
+      const container = this.parentElement;
+      const items = Array.from(container.querySelectorAll('.ranked-item'));
+      const draggedIndex = items.indexOf(draggedElement);
+      const targetIndex = items.indexOf(this);
+
+      // Swap elements if needed
+      if (draggedIndex !== targetIndex) {
+        if (draggedIndex < targetIndex) {
+          // Moving down: insert after target
+          this.parentElement.insertBefore(draggedElement, this.nextSibling);
+        } else {
+          // Moving up: insert before target
+          this.parentElement.insertBefore(draggedElement, this);
+        }
+
+        // Update rank numbers immediately
+        updateRankNumbers(container);
+      }
+
+      return false;
+    }
+
+    function handleDrop(e) {
+      if (e.stopPropagation) {
+        e.stopPropagation();
+      }
+
+      e.preventDefault();
+      return false;
+    }
+
+    function handleDragEnd(e) {
+      // Clean up
+      this.classList.remove('dragging');
+
+      draggedElement = null;
+      currentDragPollId = null;
+      dragStartIndex = -1;
+      isDragging = false;
+      applyPendingUpdate();
+    }
+
+    function getDragAfterElement(container, y) {
+      const draggableElements = [...container.querySelectorAll('.ranked-item:not(.dragging)')];
+
+      return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+
+        if (offset < 0 && offset > closest.offset) {
+          return { offset: offset, element: child };
+        } else {
+          return closest;
+        }
+      }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    function updateRankNumbers(container) {
+      const items = container.querySelectorAll('.ranked-item');
+      items.forEach((item, index) => {
+        item.querySelector('.rank-number').textContent = index + 1;
+      });
+    }
+
+    function resetRanking(pollId) {
+      if (!confirm('Are you sure you want to reset ALL votes for this poll? This will clear everyone\'s votes from the database and cannot be undone.')) {
+        return;
+      }
+
+      showLoading();
+
+      enqueueApiCall(
+        'resetPollVotes',
+        [pollId, currentUserEmail, RANK_SESSION_ID],
+        function() {
+          hideLoading();
+          showMessage('✓ All votes have been reset', 'success');
+          loadAllPolls();
+        },
+        function(error) {
+          hideLoading();
+          showMessage('Error resetting votes: ' + error.message, 'error');
+        }
+      );
+    }
+
+    function submitVoteForPoll(pollId) {
+      // Set interaction flag to prevent updates during voting
+      isInteractingWithPoll = true;
+
+      // Disable the submit button immediately
+      const submitBtn = document.querySelector(`#poll-content-${pollId} button[onclick*="submitVoteForPoll"]`);
+      const originalBtnText = submitBtn ? submitBtn.textContent : '';
+
+      if (submitBtn) {
+        submitBtn.disabled = true; // Triggers the gray .btn:disabled CSS
+        submitBtn.textContent = 'Submitting...';
+      }
+
+      const container = document.getElementById(`ranking-${pollId}`);
+      if (!container) {
+        isInteractingWithPoll = false;
+        // Re-enable button on error
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        return;
+      }
+
+      const items = container.querySelectorAll('.ranked-item');
+      const ranking = Array.from(items).map(item => item.dataset.option);
+
+      if (ranking.length === 0) {
+        showMessage('Please rank the options', 'error');
+        isInteractingWithPoll = false;
+        // Re-enable button on error
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalBtnText;
+        }
+        return;
+      }
+
+      // Optimistic update - update local data ONLY (do not re-render DOM yet)
+      const poll = allPolls.find(p => p.id === pollId);
+      if (poll) {
+        if (!poll.votes) poll.votes = {};
+        poll.votes[currentUser] = ranking;
+        showMessage('✓ Submitting vote...', 'success');
+      }
+
+      // --- FIX: REMOVED THE CARD REPLACEMENT LOGIC HERE ---
+      // We removed the oldCard.replaceWith(newCard) block so the 
+      // disabled button stays visible until the server responds.
+
+      enqueueApiCall(
+        'submitRankedChoiceVote',
+        [pollId, currentUserEmail, ranking, RANK_SESSION_ID],
+        function() {
+          showMessage('✓ Vote confirmed!', 'success');
+          isInteractingWithPoll = false;
+
+          // Re-enable button on success (user sees "Update Vote" until list refreshes)
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Update Vote';
+          }
+
+          // Reload to get server state (this will eventually update the card visuals)
+          loadAllPolls();
+          applyPendingUpdate();
+        },
+        function(error) {
+          showMessage('Error submitting vote: ' + error.message, 'error');
+          isInteractingWithPoll = false;
+
+          // Re-enable button on failure so they can try again
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
+          }
+
+          // Revert optimistic update on failure
+          loadAllPolls();
+          applyPendingUpdate();
+        }
+      );
+    }
+
+    function closePollConfirm(pollId) {
+      // Set interaction flag
+      isInteractingWithPoll = true;
+
+      if (!confirm('Are you sure you want to end this poll? This cannot be undone.')) {
+        isInteractingWithPoll = false;
+        applyPendingUpdate();
+        return;
+      }
+
+      // Second confirmation with END prompt
+      var userInput = prompt('To confirm ending this poll, type "END" (all caps):');
+      if (userInput !== 'END') {
+        showMessage('Operation cancelled', 'error');
+        isInteractingWithPoll = false;
+        applyPendingUpdate();
+        return;
+      }
+
+      // Optimistic update - close poll immediately in UI
+      const poll = allPolls.find(p => p.id === pollId);
+      if (poll) {
+        poll.status = 'closed';
+
+        // Re-render the poll card
+        const oldCard = document.querySelector(`[data-poll-id="${pollId}"]`);
+        if (oldCard) {
+          const newCard = createPollCard(poll);
+          oldCard.replaceWith(newCard);
+        }
+
+        showMessage('✓ Closing poll...', 'success');
+      }
+
+      // Don't show loading overlay for better mobile experience
+      // showLoading();
+
+      enqueueApiCall(
+        'closeRankedChoicePoll',
+        [pollId],
+        function() {
+          // hideLoading();
+          showMessage('✓ Poll closed successfully', 'success');
+          isInteractingWithPoll = false;
+          loadAllPolls();
+          applyPendingUpdate();
+        },
+        function(error) {
+          // hideLoading();
+          showMessage('Error closing poll: ' + error.message, 'error');
+          // Revert on failure
+          if (poll) {
+            poll.status = 'active';
+          }
+          isInteractingWithPoll = false;
+          loadAllPolls();
+          applyPendingUpdate();
+        }
+      );
+    }
+
+    function deletePollConfirm(pollId) {
+      // Set interaction flag
+      isInteractingWithPoll = true;
+
+      if (!confirm('Are you sure you want to delete this poll? All vote data will be permanently lost.')) {
+        isInteractingWithPoll = false;
+        applyPendingUpdate();
+        return;
+      }
+
+      // Second confirmation with DELETE prompt
+      var userInput = prompt('To confirm deletion, type "DELETE" (all caps):');
+      if (userInput !== 'DELETE') {
+        showMessage('Deletion cancelled', 'error');
+        isInteractingWithPoll = false;
+        applyPendingUpdate();
+        return;
+      }
+
+      // Optimistic update - remove poll immediately from UI
+      const pollIndex = allPolls.findIndex(p => p.id === pollId);
+      let removedPoll = null;
+      if (pollIndex !== -1) {
+        removedPoll = allPolls[pollIndex];
+        allPolls.splice(pollIndex, 1);
+
+        // Remove the poll card from DOM
+        const pollCard = document.querySelector(`[data-poll-id="${pollId}"]`);
+        if (pollCard) {
+          pollCard.style.transition = 'opacity 0.3s, transform 0.3s';
+          pollCard.style.opacity = '0';
+          pollCard.style.transform = 'scale(0.95)';
+          setTimeout(() => pollCard.remove(), 300);
+        }
+
+        showMessage('✓ Deleting poll...', 'success');
+      }
+
+      // Don't show loading overlay for better mobile experience
+      // showLoading();
+
+      enqueueApiCall(
+        'deleteRankedChoicePoll',
+        [pollId, currentUserEmail, RANK_SESSION_ID],
+        function() {
+          // hideLoading();
+          showMessage('✓ Poll deleted successfully', 'success');
+          isInteractingWithPoll = false;
+          loadAllPolls();
+          applyPendingUpdate();
+        },
+        function(error) {
+          // hideLoading();
+          showMessage('Error deleting poll: ' + error.message, 'error');
+          // Revert on failure
+          if (removedPoll) {
+            allPolls.push(removedPoll);
+          }
+          isInteractingWithPoll = false;
+          loadAllPolls();
+          applyPendingUpdate();
+        }
+      );
+    }
+
+    // Results Calculation with Proper Instant Runoff
+    function calculateInstantRunoff(votes, options) {
+      // First calculate the scoring for display purposes
+      const scores = {};
+      const votesByPosition = {};
+      const firstChoiceVoters = {};
+
+      options.forEach(opt => {
+        scores[opt] = 0;
+        votesByPosition[opt] = {};
+        firstChoiceVoters[opt] = [];
+      });
+
+      Object.entries(votes).forEach(([voter, ranking]) => {
+        ranking.forEach((option, index) => {
+          const points = Math.max(0, options.length - index);
+          scores[option] = (scores[option] || 0) + points;
+
+          const position = index + 1;
+          if (!votesByPosition[option][position]) {
+            votesByPosition[option][position] = 0;
+          }
+          votesByPosition[option][position]++;
+
+          if (index === 0) {
+            firstChoiceVoters[option].push(voter);
+          }
+        });
+      });
+
+      return Object.entries(scores)
+        .map(([option, score]) => ({
+          option,
+          score,
+          firstChoiceVotes: votesByPosition[option][1] || 0,
+          votesByPosition: votesByPosition[option],
+          voters: firstChoiceVoters[option] || []
+        }))
+        .sort((a, b) => b.score - a.score);
+    }
+
+    // Proper Instant Runoff Voting with elimination rounds
+    function performInstantRunoff(votes, options, threshold) {
+      const totalVoters = Object.keys(votes).length;
+      if (totalVoters === 0) return { winner: null, rounds: [] };
+
+      // Create mutable ballot copies
+      let activeBallots = {};
+      Object.entries(votes).forEach(([voter, ranking]) => {
+        activeBallots[voter] = [...ranking];
+      });
+
+      let remainingOptions = [...options];
+      const eliminationRounds = [];
+
+      while (remainingOptions.length > 1) {
+        // Count first-choice votes for remaining options
+        const firstChoiceCounts = {};
+        remainingOptions.forEach(opt => {
+          firstChoiceCounts[opt] = 0;
+        });
+
+        // Count current first choices
+        Object.values(activeBallots).forEach(ballot => {
+          // Find the first remaining option on this ballot
+          const firstChoice = ballot.find(opt => remainingOptions.includes(opt));
+          if (firstChoice) {
+            firstChoiceCounts[firstChoice]++;
+          }
+        });
+
+        // Record this round
+        const roundData = {
+          remainingOptions: [...remainingOptions],
+          firstChoiceCounts: {...firstChoiceCounts},
+          totalVotes: totalVoters
+        };
+
+        // Check if anyone meets the threshold
+        for (const [option, count] of Object.entries(firstChoiceCounts)) {
+          const percentage = count / totalVoters;
+          if (percentage > threshold) {
+            roundData.winner = option;
+            roundData.winnerPercentage = percentage * 100;
+            eliminationRounds.push(roundData);
+            return {
+              winner: {
+                option: option,
+                percentage: percentage * 100,
+                finalVoteCount: count,
+                totalVoters: totalVoters
+              },
+              rounds: eliminationRounds
+            };
+          }
+        }
+
+        // Special case: if we're down to 2 options and threshold is 50%,
+        // check if one has MORE votes than the other (ties result in no winner)
+        if (remainingOptions.length === 2 && threshold <= 0.5) {
+          const sorted = Object.entries(firstChoiceCounts).sort((a, b) => b[1] - a[1]);
+          const [winnerOption, winnerCount] = sorted[0];
+          const [runnerUpOption, runnerUpCount] = sorted[1];
+          const winnerPct = (winnerCount / totalVoters) * 100;
+
+          // Only declare a winner if they have strictly MORE votes (no tie)
+          if (winnerCount > runnerUpCount) {
+            roundData.winner = winnerOption;
+            roundData.winnerPercentage = winnerPct;
+            eliminationRounds.push(roundData);
+
+            return {
+              winner: {
+                option: winnerOption,
+                percentage: winnerPct,
+                finalVoteCount: winnerCount,
+                totalVoters: totalVoters
+              },
+              rounds: eliminationRounds
+            };
+          } else {
+            // Perfect tie - no winner
+            roundData.noWinner = true;
+            roundData.failedThreshold = threshold * 100;
+            roundData.note = 'Perfect tie - no option has more than 50% of votes';
+            eliminationRounds.push(roundData);
+            return { winner: null, rounds: eliminationRounds };
+          }
+        }
+
+        // No winner yet - eliminate the option with fewest votes
+        // Handle ties: eliminate all options with the minimum vote count if they're tied for last
+        let minVotes = Math.min(...Object.values(firstChoiceCounts));
+        const optionsToEliminate = Object.entries(firstChoiceCounts)
+          .filter(([_, count]) => count === minVotes)
+          .map(([option, _]) => option);
+
+        // If all remaining options are tied, and threshold is 50%, pick the first one
+        if (optionsToEliminate.length === remainingOptions.length && threshold <= 0.5) {
+          const sorted = Object.entries(firstChoiceCounts).sort((a, b) => {
+            // Sort by count first, then alphabetically for consistency
+            if (b[1] !== a[1]) return b[1] - a[1];
+            return a[0].localeCompare(b[0]);
+          });
+          const [winnerOption, winnerCount] = sorted[0];
+          const winnerPct = (winnerCount / totalVoters) * 100;
+
+          roundData.winner = winnerOption;
+          roundData.winnerPercentage = winnerPct;
+          roundData.note = 'All remaining options tied - winner selected by alphabetical order';
+          eliminationRounds.push(roundData);
+
+          return {
+            winner: {
+              option: winnerOption,
+              percentage: winnerPct,
+              finalVoteCount: winnerCount,
+              totalVoters: totalVoters
+            },
+            rounds: eliminationRounds
+          };
+        }
+
+        // Eliminate just one option if there are ties (alphabetically first)
+        const optionToEliminate = optionsToEliminate.sort()[0];
+
+        if (optionToEliminate) {
+          roundData.eliminated = optionToEliminate;
+          roundData.eliminatedVotes = minVotes;
+          eliminationRounds.push(roundData);
+
+          // Remove the eliminated option
+          remainingOptions = remainingOptions.filter(opt => opt !== optionToEliminate);
+        } else {
+          // Shouldn't happen, but safety check
+          break;
+        }
+      }
+
+      // If we're down to one option
+      if (remainingOptions.length === 1) {
+        const lastOption = remainingOptions[0];
+
+        // Count first-choice votes (after eliminations, this is what matters)
+        let supportCount = 0;
+        Object.values(activeBallots).forEach(ballot => {
+          const firstChoice = ballot.find(opt => remainingOptions.includes(opt));
+          if (firstChoice === lastOption) {
+            supportCount++;
+          }
+        });
+
+        const percentage = supportCount / totalVoters;
+        const finalRound = {
+          remainingOptions: [lastOption],
+          firstChoiceCounts: { [lastOption]: supportCount },
+          totalVotes: totalVoters
+        };
+
+        // For 50% threshold, check if the option has more than 50% support
+        if (threshold <= 0.5) {
+          if (percentage > 0.5) {
+            finalRound.winner = lastOption;
+            finalRound.winnerPercentage = percentage * 100;
+            eliminationRounds.push(finalRound);
+
+            return {
+              winner: {
+                option: lastOption,
+                percentage: percentage * 100,
+                finalVoteCount: supportCount,
+                totalVoters: totalVoters
+              },
+              rounds: eliminationRounds
+            };
+          } else {
+            // Doesn't meet threshold
+            finalRound.noWinner = true;
+            finalRound.failedThreshold = threshold * 100;
+            eliminationRounds.push(finalRound);
+            return { winner: null, rounds: eliminationRounds };
+          }
+        } else {
+          // For thresholds > 50%, check if it meets the threshold
+          if (percentage > threshold) {
+            finalRound.winner = lastOption;
+            finalRound.winnerPercentage = percentage * 100;
+            eliminationRounds.push(finalRound);
+            return {
+              winner: {
+                option: lastOption,
+                percentage: percentage * 100,
+                finalVoteCount: supportCount,
+                totalVoters: totalVoters
+              },
+              rounds: eliminationRounds
+            };
+          } else {
+            finalRound.noWinner = true;
+            finalRound.failedThreshold = threshold * 100;
+            eliminationRounds.push(finalRound);
+          }
+        }
+      }
+
+      // No winner met the threshold (only possible for > 50% thresholds)
+      return { winner: null, rounds: eliminationRounds };
+    }
+
+    // UI Helpers
+    function showLoading(skipOverlay = false) {
+      // For mobile, we often skip the full overlay for better UX
+      if (!skipOverlay) {
+        document.getElementById('loadingOverlay').style.display = 'flex';
+      }
+    }
+
+    function hideLoading() {
+      document.getElementById('loadingOverlay').style.display = 'none';
+    }
+
+    // Check if mobile device
+    function isMobile() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || window.innerWidth < 768;
+    }
+
+    function showMessage(message, type = 'error') {
+      const msgEl = document.getElementById('messageDisplay');
+      msgEl.textContent = message;
+      msgEl.className = 'message ' + type;
+      msgEl.style.display = 'block';
+
+      setTimeout(() => {
+        msgEl.style.display = 'none';
+      }, 5000);
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Lifecycle Management
+    document.addEventListener('visibilitychange', function() {
+      if (document.visibilityState === 'visible') {
+        connectSSE();
+        loadAllPolls();
+      } else {
+        disconnectSSE();
+      }
+    });
+
+    window.addEventListener('beforeunload', function() {
+      disconnectSSE();
+      // Destroy all charts
+      Object.values(pollCharts).forEach(chart => chart.destroy());
+    });
+
+    // Mobile touch drag support
+    var touchDragElement = null;
+    var touchStartY = 0;
+    var touchStartX = 0;
+    var touchOffsetY = 0;
+    var placeholder = null;
+    var ghostElement = null;
+    var lastTouchY = 0;
+
+    document.addEventListener('touchstart', function(e) {
+      var target = e.target.closest('.ranked-item');
+      if (!target) return;
+
+      // Clean up any existing ghost elements and placeholders first
+      document.querySelectorAll('[data-ghost="true"]').forEach(function(el) {
+        el.remove();
+      });
+      document.querySelectorAll('[data-placeholder="true"]').forEach(function(el) {
+        el.remove();
+      });
+
+      if (ghostElement) {
+        ghostElement.remove();
+        ghostElement = null;
+      }
+      if (placeholder) {
+        placeholder.remove();
+        placeholder = null;
+      }
+
+      touchDragElement = target;
+      isDragging = true;
+      currentDragPollId = target.dataset.pollId;
+
+      var touch = e.touches[0];
+      var rect = target.getBoundingClientRect();
+      touchStartY = rect.top;
+      touchStartX = rect.left;
+      touchOffsetY = touch.clientY - rect.top;
+      lastTouchY = touch.clientY;
+
+      // Create ghost element for visual feedback
+      ghostElement = target.cloneNode(true);
+      ghostElement.style.position = 'fixed';
+      ghostElement.style.top = rect.top + 'px';
+      ghostElement.style.left = rect.left + 'px';
+      ghostElement.style.width = rect.width + 'px';
+      ghostElement.style.opacity = '0.9';
+      ghostElement.style.zIndex = '9999';
+      ghostElement.style.pointerEvents = 'none';
+      ghostElement.style.transition = 'none';
+      ghostElement.setAttribute('data-ghost', 'true');
+      document.body.appendChild(ghostElement);
+
+      // Hide original and create placeholder
+      target.style.opacity = '0.3';
+
+      placeholder = document.createElement('div');
+      placeholder.className = 'ranked-item-placeholder';
+      placeholder.style.height = target.offsetHeight + 'px';
+      placeholder.style.background = 'rgba(255, 215, 0, 0.1)';
+      placeholder.style.border = '2px dashed rgba(255, 215, 0, 0.3)';
+      placeholder.style.borderRadius = '12px';
+      placeholder.style.marginBottom = '12px';
+      placeholder.setAttribute('data-placeholder', 'true');
+
+      target.parentElement.insertBefore(placeholder, target);
+    }, {passive: false});
+
+    document.addEventListener('touchmove', function(e) {
+      if (!touchDragElement || !ghostElement) return;
+
+      e.preventDefault();
+
+      var touch = e.touches[0];
+      lastTouchY = touch.clientY;
+
+      // Move ghost element
+      ghostElement.style.top = (touch.clientY - touchOffsetY) + 'px';
+
+      // Find position in ranking container
+      var pollId = touchDragElement.dataset.pollId;
+      var rankingContainer = document.getElementById('ranking-' + pollId);
+      if (!rankingContainer) return;
+
+      var allItems = Array.from(rankingContainer.querySelectorAll('.ranked-item:not(.dragging)'));
+      var afterElement = null;
+
+      for (var item of allItems) {
+        if (item === touchDragElement) continue;
+        var box = item.getBoundingClientRect();
+        if (touch.clientY < box.top + box.height / 2) {
+          afterElement = item;
+          break;
+        }
+      }
+
+      if (placeholder.parentElement !== rankingContainer) {
+        placeholder.remove();
+      }
+
+      if (afterElement) {
+        rankingContainer.insertBefore(placeholder, afterElement);
+      } else {
+        rankingContainer.appendChild(placeholder);
+      }
+    }, {passive: false});
+
+    document.addEventListener('touchend', function(e) {
+      if (!touchDragElement) {
+        // Clean up any orphaned elements
+        document.querySelectorAll('[data-ghost="true"]').forEach(function(el) {
+          el.remove();
+        });
+        document.querySelectorAll('[data-placeholder="true"]').forEach(function(el) {
+          el.remove();
+        });
+        ghostElement = null;
+        placeholder = null;
+        return;
+      }
+
+      // Remove ghost element
+      if (ghostElement) {
+        ghostElement.remove();
+        ghostElement = null;
+      }
+
+      // Restore original element
+      touchDragElement.style.opacity = '';
+
+      if (placeholder && placeholder.parentElement) {
+        placeholder.parentElement.insertBefore(touchDragElement, placeholder);
+        placeholder.remove();
+
+        var container = touchDragElement.parentElement;
+        updateRankNumbers(container);
+      }
+
+      // Clean up any orphaned ghost elements and placeholders
+      document.querySelectorAll('[data-ghost="true"]').forEach(function(el) {
+        el.remove();
+      });
+      document.querySelectorAll('[data-placeholder="true"]').forEach(function(el) {
+        el.remove();
+      });
+
+      touchDragElement = null;
+      placeholder = null;
+      isDragging = false;
+      applyPendingUpdate();
+    });
+
+    // Clean up any lingering ghost elements and placeholders on touchcancel
+    document.addEventListener('touchcancel', function(e) {
+      document.querySelectorAll('[data-ghost="true"]').forEach(function(el) {
+        el.remove();
+      });
+      document.querySelectorAll('[data-placeholder="true"]').forEach(function(el) {
+        el.remove();
+      });
+
+      if (touchDragElement) {
+        touchDragElement.style.opacity = '';
+      }
+
+      if (ghostElement) {
+        ghostElement.remove();
+        ghostElement = null;
+      }
+
+      if (placeholder && placeholder.parentElement) {
+        placeholder.remove();
+      }
+
+      touchDragElement = null;
+      placeholder = null;
+      isDragging = false;
+    });
+
+    // Admin functions
+    function closeAllPollsConfirm() {
+      if (!isAdmin) {
+        showMessage('Admin access required', 'error');
+        return;
+      }
+
+      var activePolls = allPolls.filter(p => p.status === 'active');
+      if (activePolls.length === 0) {
+        showMessage('No active polls to close', 'error');
+        return;
+      }
+
+      if (!confirm(`Are you sure you want to END ALL ${activePolls.length} active poll(s)? This cannot be undone.`)) {
+        return;
+      }
+
+      // Second confirmation with END prompt
+      var userInput = prompt(`To confirm ending ${activePolls.length} poll(s), type "END" (all caps):`);
+      if (userInput !== 'END') {
+        showMessage('Operation cancelled', 'error');
+        return;
+      }
+
+      showLoading();
+
+      var completed = 0;
+      var failed = 0;
+
+      activePolls.forEach(function(poll) {
+        enqueueApiCall(
+          'closeRankedChoicePoll',
+          [poll.id],
+          function() {
+            completed++;
+            if (completed + failed === activePolls.length) {
+              hideLoading();
+              loadAllPolls();
+              showMessage(`✓ Closed ${completed} poll(s)` + (failed > 0 ? `, ${failed} failed` : ''), completed > 0 ? 'success' : 'error');
+            }
+          },
+          function(error) {
+            failed++;
+            console.error('Failed to close poll:', poll.id, error);
+            if (completed + failed === activePolls.length) {
+              hideLoading();
+              loadAllPolls();
+              showMessage(`✓ Closed ${completed} poll(s)` + (failed > 0 ? `, ${failed} failed` : ''), completed > 0 ? 'success' : 'error');
+            }
+          }
+        );
+      });
+    }
+
+    function deleteAllPollsConfirm() {
+      if (!isAdmin) {
+        showMessage('Admin access required', 'error');
+        return;
+      }
+
+      var closedPolls = allPolls.filter(p => p.status === 'closed');
+      if (closedPolls.length === 0) {
+        showMessage('No closed polls to delete', 'error');
+        return;
+      }
+
+      if (!confirm(`⚠️ DANGER: Are you sure you want to DELETE ALL ${closedPolls.length} closed poll(s)? All vote data will be permanently lost. This cannot be undone.`)) {
+        return;
+      }
+
+      // Final confirmation with DELETE prompt (cannot be suppressed)
+      var userInput = prompt(`To confirm deletion of ${closedPolls.length} closed poll(s), type "DELETE" (all caps):`);
+      if (userInput !== 'DELETE') {
+        showMessage('Deletion cancelled', 'error');
+        return;
+      }
+
+      showLoading();
+
+      var completed = 0;
+      var failed = 0;
+
+      closedPolls.forEach(function(poll) {
+        enqueueApiCall(
+          'deleteRankedChoicePoll',
+          [poll.id, currentUserEmail, RANK_SESSION_ID],
+          function() {
+            completed++;
+            if (completed + failed === closedPolls.length) {
+              hideLoading();
+              loadAllPolls();
+              showMessage(`✓ Deleted ${completed} poll(s)` + (failed > 0 ? `, ${failed} failed` : ''), completed > 0 ? 'success' : 'error');
+            }
+          },
+          function(error) {
+            failed++;
+            console.error('Failed to delete poll:', poll.id, error);
+            if (completed + failed === closedPolls.length) {
+              hideLoading();
+              loadAllPolls();
+              showMessage(`✓ Deleted ${completed} poll(s)` + (failed > 0 ? `, ${failed} failed` : ''), completed > 0 ? 'success' : 'error');
+            }
+          }
+        );
+      });
+    }
+
+    // Show admin controls if user is admin
+    function checkAdminAccess() {
+
+      if (isAdmin) {
+        var adminControls = document.getElementById('adminControls');
+        if (adminControls) {
+          adminControls.style.display = 'flex';
+        }
+      }
+    }
+
+    // Initialize
+    connectSSE();
+    loadAllPolls();
+    checkAdminAccess();
+
+    // Expose functions to global scope for onclick handlers
+    window.openCreatePollModal = openCreatePollModal;
+    window.closeCreatePollModal = closeCreatePollModal;
+    window.selectThreshold = selectThreshold;
+    window.selectAnonymous = selectAnonymous;
+    window.addOption = addOption;
+    window.removeOption = removeOption;
+    window.resetRanking = resetRanking;
+    window.submitVoteForPoll = submitVoteForPoll;
+    window.closePollConfirm = closePollConfirm;
+    window.deletePollConfirm = deletePollConfirm;
+    window.closeAllPollsConfirm = closeAllPollsConfirm;
+    window.deleteAllPollsConfirm = deleteAllPollsConfirm;
+  })(); // End IIFE
+  </script>
+</html>

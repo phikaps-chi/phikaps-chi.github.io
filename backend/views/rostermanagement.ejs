@@ -1,0 +1,1798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roster Management</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        .background-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100vh;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2a2a2a 100%);
+            z-index: -1;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #ffd700; background: #0a0a0a; min-height: 100vh;
+            padding: 1rem;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            text-align: center; margin-bottom: 2rem; padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border-radius: 20px; border: 2px solid #ffd700;
+        }
+        .title { font-size: 2rem; font-weight: 300; margin-bottom: 0.5rem; }
+        .subtitle { font-size: 1rem; opacity: 0.8; }
+        .controls {
+            display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;
+            justify-content: center; align-items: center;
+        }
+        .btn {
+            padding: 0.6rem 1.2rem; background: #ffd700; color: #1a1a1a;
+            border: none; border-radius: 25px; font-weight: 600;
+            cursor: pointer; transition: all 0.3s ease;
+        }
+        .btn:hover {
+            background: #ffed4a; transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.3);
+        }
+        .btn-secondary {
+            background: transparent; border: 2px solid #ffd700;
+            color: #ffd700;
+        }
+        .btn-secondary:hover {
+            background: #ffd700; color: #1a1a1a;
+        }
+        .btn:disabled {
+            opacity: 0.5; cursor: not-allowed;
+        }
+        .search-box {
+            padding: 0.6rem 1rem; background: rgba(255, 215, 0, 0.1);
+            border: 2px solid #ffd700; border-radius: 25px;
+            color: #ffd700; width: 300px;
+        }
+        .search-box::placeholder { color: rgba(255, 215, 0, 0.5); }
+        .roster-table {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border-radius: 20px; padding: 1.5rem; border: 2px solid #ffd700;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%; border-collapse: collapse;
+        }
+        th {
+            background: rgba(255, 215, 0, 0.1); padding: 1rem;
+            text-align: left; font-weight: 600; border-bottom: 2px solid #ffd700;
+        }
+        th input[type="checkbox"] {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+        td {
+            padding: 0.8rem; border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+        }
+        tr:hover { background: rgba(255, 215, 0, 0.05); }
+        .editable {
+            background: transparent; border: 1px solid transparent;
+            color: #ffd700; padding: 0.3rem 0.5rem; border-radius: 5px;
+            width: 100%; transition: all 0.2s ease;
+        }
+        .editable:focus {
+            outline: none; border-color: #ffd700;
+            background: rgba(255, 215, 0, 0.1);
+        }
+        .officer-select {
+            background: rgba(255, 215, 0, 0.1); border: 1px solid #ffd700;
+            color: #ffd700; padding: 0.3rem 0.5rem; border-radius: 5px;
+            width: 100%;
+        }
+        .officer-select option {
+            background: #1a1a1a; color: #ffd700;
+        }
+        .status-message {
+            padding: 1rem; border-radius: 10px; margin-bottom: 1rem;
+            text-align: center; display: none;
+        }
+        .status-message.success {
+            background: rgba(76, 175, 80, 0.2); border: 2px solid #4caf50;
+            color: #4caf50;
+        }
+        .status-message.error {
+            background: rgba(244, 67, 54, 0.2); border: 2px solid #f44336;
+            color: #f44336;
+        }
+        .status-message.info {
+            background: rgba(33, 150, 243, 0.2); border: 2px solid #2196f3;
+            color: #2196f3;
+        }
+        .loading-spinner {
+            border: 3px solid rgba(255, 215, 0, 0.3);
+            border-top: 3px solid #ffd700; border-radius: 50%;
+            width: 30px; height: 30px; animation: spin 1s linear infinite;
+            margin: 2rem auto; display: none;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* Save overlay styles */
+        .save-overlay {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 999;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        .save-overlay.show {
+            display: block;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .save-overlay-btn {
+            padding: 1rem 2rem;
+            background: #ffd700;
+            color: #1a1a1a;
+            border: none;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+            transition: all 0.3s ease;
+        }
+        .save-overlay-btn:hover {
+            background: #ffed4a;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(255, 215, 0, 0.5);
+        }
+        .btn-remove {
+            background: #f44336; color: white; border: none;
+            padding: 0.3rem 0.8rem; border-radius: 5px;
+            cursor: pointer; font-size: 0.85rem;
+            transition: background 0.2s ease;
+        }
+        .btn-remove:hover { background: #d32f2f; }
+        .btn-bulk-delete {
+            background: #f44336; color: white; border: 2px solid #f44336;
+            padding: 0.6rem 1.2rem; border-radius: 25px;
+            font-weight: 600; cursor: pointer; font-size: 0.95rem;
+            transition: all 0.3s ease; display: none;
+        }
+        .btn-bulk-delete:hover {
+            background: #d32f2f; transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(244, 67, 54, 0.3);
+        }
+        .btn-bulk-delete.show {
+            display: inline-block;
+        }
+        td input[type="checkbox"] {
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Multi-select dropdown styles */
+        .multi-select-container {
+            position: relative;
+            width: 100%;
+        }
+        .multi-select-input {
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid #ffd700;
+            color: #ffd700;
+            padding: 0.3rem 0.5rem;
+            border-radius: 5px;
+            width: 100%;
+            cursor: pointer;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .multi-select-input:focus {
+            outline: none;
+            border-color: #ffed4a;
+            background: rgba(255, 215, 0, 0.15);
+        }
+        .multi-select-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #1a1a1a;
+            border: 1px solid #ffd700;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .multi-select-dropdown.show {
+            display: block;
+        }
+        .multi-select-option {
+            padding: 0.4rem 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: background 0.2s ease;
+        }
+        .multi-select-option:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+        .multi-select-option input[type="checkbox"] {
+            margin: 0;
+            cursor: pointer;
+        }
+        .multi-select-option label {
+            cursor: pointer;
+            color: #ffd700;
+            font-size: 0.85rem;
+            flex: 1;
+            margin: 0;
+        }
+
+        /* Modal styles for add brother dialog */
+        .modal {
+            display: none; position: fixed; z-index: 1000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+        }
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            margin: 10% auto; padding: 2rem; width: 90%;
+            max-width: 500px; border-radius: 20px;
+            border: 2px solid #ffd700; position: relative;
+        }
+        .modal-close {
+            position: absolute; right: 1rem; top: 1rem;
+            font-size: 1.5rem; font-weight: bold;
+            cursor: pointer; color: #ffd700;
+        }
+        .modal-close:hover { color: #ffed4a; }
+        .modal h2 {
+            color: #ffd700; margin-bottom: 1.5rem;
+            text-align: center;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        .form-group label {
+            display: block; margin-bottom: 0.3rem;
+            color: #ffd700; font-size: 0.9rem;
+        }
+        .form-group input, .form-group select {
+            width: 100%; padding: 0.6rem; background: rgba(255, 215, 0, 0.1);
+            border: 2px solid #ffd700; border-radius: 10px;
+            color: #ffd700; font-size: 1rem;
+        }
+        .form-group input::placeholder {
+            color: rgba(255, 215, 0, 0.5);
+        }
+        .modal-buttons {
+            display: flex; gap: 1rem; justify-content: center;
+            margin-top: 1.5rem;
+        }
+
+        /* Mobile contact card styles */
+        .contacts-cards {
+            display: none; /* Hidden by default, shown on mobile */
+        }
+
+        .contact-card {
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1rem;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+
+        .contact-card:hover {
+            border-color: #ffd700;
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
+        }
+
+        .contact-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 0.75rem;
+        }
+
+        .contact-card-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #ffd700;
+            margin-bottom: 0.25rem;
+        }
+
+        .contact-card-email {
+            font-size: 0.9rem;
+            color: rgba(255, 215, 0, 0.7);
+        }
+
+        .contact-card-positions {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .contact-card-positions-label {
+            font-size: 0.85rem;
+            color: rgba(255, 215, 0, 0.6);
+            margin-bottom: 0.5rem;
+        }
+
+        .contact-card-positions-value {
+            color: #ffd700;
+            font-size: 0.95rem;
+        }
+
+        .card-menu-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            color: #ffd700;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            padding: 0;
+        }
+
+        .card-menu-btn:hover {
+            background: rgba(255, 215, 0, 0.1);
+            border-color: #ffd700;
+        }
+
+        .card-menu-btn:active {
+            transform: scale(0.95);
+        }
+
+        .contact-card-checkbox {
+            position: absolute;
+            top: 1.25rem;
+            left: 1.25rem;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            z-index: 10;
+        }
+
+        .contact-card.selected {
+            border-color: #ffd700;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+            box-shadow: 0 4px 12px rgba(255, 215, 0, 0.3);
+        }
+
+        .contact-card-content {
+            padding-left: 2.5rem;
+        }
+
+
+        @media (max-width: 768px) {
+            /* Container and header adjustments */
+            body {
+                padding: 0.75rem;
+            }
+
+            .container {
+                max-width: 100%;
+            }
+
+            .header {
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .title {
+                font-size: 1.5rem;
+            }
+
+            .subtitle {
+                font-size: 0.9rem;
+            }
+
+            /* Better touch targets for controls */
+            .controls {
+                flex-direction: column;
+                gap: 0.75rem;
+                width: 100%;
+            }
+
+            .search-box {
+                width: 100%;
+                padding: 0.75rem 1rem;
+                font-size: 16px; /* Prevents zoom on iOS */
+                min-height: 48px;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 0.875rem 1.5rem;
+                font-size: 16px;
+                min-height: 48px;
+                border-radius: 12px;
+            }
+
+            .btn-secondary {
+                width: 100%;
+            }
+
+            /* Hide table on mobile, show cards instead */
+            .roster-table {
+                display: none;
+            }
+
+            .contacts-cards {
+                display: block;
+            }
+
+            th {
+                padding: 0.75rem 0.5rem;
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+
+            td {
+                padding: 0.625rem 0.5rem;
+                font-size: 0.875rem;
+            }
+
+            .editable {
+                font-size: 15px; /* Prevents zoom on iOS */
+                padding: 0.5rem;
+                min-height: 40px;
+            }
+
+            /* Multi-select improvements for mobile */
+            .multi-select-input {
+                font-size: 15px; /* Prevents zoom on iOS */
+                padding: 0.5rem;
+                min-height: 40px;
+            }
+
+            .multi-select-dropdown {
+                max-height: 250px;
+                border-radius: 8px;
+            }
+
+            .multi-select-option {
+                padding: 0.75rem 0.625rem;
+                min-height: 44px;
+            }
+
+            .multi-select-option label {
+                font-size: 0.9rem;
+            }
+
+            /* Better touch target for checkboxes */
+            .multi-select-option input[type="checkbox"] {
+                width: 20px;
+                height: 20px;
+            }
+
+            /* Remove button sizing */
+            .btn-remove {
+                padding: 0.5rem 1rem;
+                font-size: 0.875rem;
+                min-height: 40px;
+                white-space: nowrap;
+            }
+
+            /* Save overlay repositioning for mobile */
+            .save-overlay {
+                bottom: 20px;
+                right: 20px;
+                left: 20px;
+                width: auto;
+            }
+
+            .save-overlay-btn {
+                width: 100%;
+                padding: 1rem 1.5rem;
+                font-size: 1rem;
+            }
+
+            /* Modal improvements */
+            .modal-content {
+                margin: 5% auto;
+                padding: 1.5rem;
+                width: 95%;
+                max-width: 95%;
+                max-height: 85vh;
+                overflow-y: auto;
+            }
+
+            .modal h2 {
+                font-size: 1.25rem;
+                margin-bottom: 1rem;
+            }
+
+            .modal-close {
+                font-size: 1.75rem;
+                right: 0.75rem;
+                top: 0.75rem;
+                padding: 0.5rem;
+                min-width: 44px;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            /* Form improvements */
+            .form-group {
+                margin-bottom: 1rem;
+            }
+
+            .form-group label {
+                font-size: 0.95rem;
+                margin-bottom: 0.5rem;
+            }
+
+            .form-group input,
+            .form-group select {
+                padding: 0.75rem;
+                font-size: 16px; /* Prevents zoom on iOS */
+                min-height: 48px;
+            }
+
+            /* Modal buttons stack on mobile */
+            .modal-buttons {
+                flex-direction: column;
+                gap: 0.75rem;
+                margin-top: 1.25rem;
+            }
+
+            .modal-buttons .btn {
+                width: 100%;
+            }
+
+            /* Brother form cards */
+            div[id^="brother-form-"] {
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+            }
+
+            div[id^="brother-form-"] h3 {
+                font-size: 1rem !important;
+            }
+
+            /* Checkbox containers in forms */
+            div[id^="modalPositionCheckboxes-"] > div {
+                padding: 0.5rem 0 !important;
+                min-height: 44px;
+                display: flex !important;
+                align-items: center !important;
+            }
+
+            div[id^="modalPositionCheckboxes-"] input[type="checkbox"] {
+                width: 20px;
+                height: 20px;
+                flex-shrink: 0;
+            }
+
+            div[id^="modalPositionCheckboxes-"] label {
+                font-size: 0.95rem !important;
+                padding-left: 0.25rem;
+            }
+
+            /* Officer select dropdown */
+            .officer-select {
+                font-size: 16px;
+                padding: 0.75rem;
+                min-height: 48px;
+            }
+
+            /* Status messages */
+            .status-message {
+                padding: 0.875rem;
+                font-size: 0.9rem;
+                margin-bottom: 1rem;
+            }
+
+            /* Loading spinner */
+            .loading-spinner {
+                width: 40px;
+                height: 40px;
+                border-width: 4px;
+            }
+
+            /* Better scrollbar for table on mobile */
+            .roster-table::-webkit-scrollbar {
+                height: 8px;
+            }
+
+            .roster-table::-webkit-scrollbar-track {
+                background: rgba(255, 215, 0, 0.1);
+                border-radius: 4px;
+            }
+
+            .roster-table::-webkit-scrollbar-thumb {
+                background: rgba(255, 215, 0, 0.4);
+                border-radius: 4px;
+            }
+
+            .roster-table::-webkit-scrollbar-thumb:hover {
+                background: rgba(255, 215, 0, 0.6);
+            }
+
+        }
+    </style>
+</head>
+<body>
+    <div class="background-overlay"></div>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Roster Management</h1>
+            <p class="subtitle">Manage Brother Information and Officer Positions</p>
+        </div>
+
+        <div id="statusMessage" class="status-message"></div>
+
+        <div class="controls">
+            <input type="text" id="searchInput" class="search-box" placeholder="Search by name or email...">
+            <button id="refreshBtn" class="btn btn-secondary">
+                Refresh Data
+            </button>
+            <button id="addBrotherBtn" class="btn btn-secondary">
+                Add Brothers
+            </button>
+            <button id="bulkDeleteBtn" class="btn-bulk-delete">
+                Delete Selected
+            </button>
+        </div>
+
+        <div class="loading-spinner" id="loadingSpinner"></div>
+
+        <!-- Desktop table view -->
+        <div class="roster-table" id="rosterContainer">
+            <table id="rosterTable">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">
+                            <input type="checkbox" id="selectAllCheckbox" title="Select all">
+                        </th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Officer Position</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="rosterBody">
+                    <!-- Data will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile card view -->
+        <div class="contacts-cards" id="contactsCards">
+            <!-- Cards will be populated here -->
+        </div>
+    </div>
+
+    <!-- Save overlay button -->
+    <div id="saveOverlay" class="save-overlay">
+        <button id="saveOverlayBtn" class="save-overlay-btn">
+            Save Changes
+        </button>
+    </div>
+
+    <!-- Modal for adding new brothers -->
+    <div id="addBrotherModal" class="modal">
+        <div class="modal-content" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
+            <span class="modal-close">&times;</span>
+            <h2>Add Brothers</h2>
+            <div id="brotherForms">
+                <!-- Brother forms will be dynamically added here -->
+            </div>
+            <div style="margin-top: 1rem; text-align: center;">
+                <button class="btn btn-secondary" onclick="addAnotherBrotherForm()">+ Add Another Brother</button>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeAddModal()">Cancel</button>
+                <button class="btn" onclick="confirmAddBrothers()">Add All Brothers</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for editing contact on mobile -->
+    <div id="editContactModal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeEditModal()">&times;</span>
+            <h2>Edit Contact</h2>
+            <div class="form-group">
+                <label for="editName">Name *</label>
+                <input type="text" id="editName">
+            </div>
+            <div class="form-group">
+                <label for="editEmail">Gmail *</label>
+                <input type="email" id="editEmail">
+            </div>
+            <div class="form-group">
+                <label>Officer Position(s)</label>
+                <div style="max-height: 200px; overflow-y: auto; border: 1px solid #ffd700; border-radius: 10px; padding: 0.5rem; background: rgba(255, 215, 0, 0.05);">
+                    <div id="editPositionCheckboxes">
+                        <!-- Position checkboxes will be populated here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-remove" onclick="deleteContactFromModal()">Delete Contact</button>
+                <button class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn" onclick="saveContactEdit()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Debug what data is available
+        console.log("=== CHECKING FOR ROSTER DATA ===");
+
+        // First check if preloaded data exists (injected by server)
+        var initialRosterData = null;
+
+        if (window.preloadedRosterData) {
+            console.log("Found preloadedRosterData:", window.preloadedRosterData.length, "brothers");
+            initialRosterData = window.preloadedRosterData;
+        } else {
+            console.log("No preloadedRosterData found, checking template variable...");
+
+            // Try to get from template variable (this works when not dynamically loaded)
+            try {
+                var templateRoster = <%- JSON.stringify(roster || null) %>;
+                if (templateRoster) {
+                    console.log("Found roster from template:", templateRoster.length, "brothers");
+                    initialRosterData = templateRoster;
+                } else {
+                    console.log("Template roster is null/undefined");
+                }
+            } catch (e) {
+                console.log("Could not parse template roster:", e.message);
+            }
+        }
+
+        console.log("Final initialRosterData:", initialRosterData ? initialRosterData.length + " brothers" : "none");
+        if (initialRosterData && initialRosterData.length > 0) {
+            console.log("First brother:", initialRosterData[0]);
+        }
+
+        // Wrap everything in IIFE to avoid global scope pollution
+        (function() {
+            'use strict';
+
+            // Store original data for comparison
+            let originalData = [];
+            let currentData = [];
+            let hasChanges = false;
+            let dataVersion = null;
+            let hasEditLock = false;
+            let lockRefreshInterval = null;
+
+            // Track removed brothers
+            let removedBrothers = [];
+
+            // Track selected brothers for bulk delete
+            let selectedBrothers = new Set();
+
+            // Available officer positions
+            const officerPositions = [
+                'None',
+                'Alpha',
+                'Beta',
+                'Sigma',
+                'Chi',
+                'Iota',
+                'Tau',
+                'Gamma',
+                'Rho',
+                'Theta',
+                'Associate Tau',
+                'Associate Gamma',
+                'Associate Iota',
+                'Associate Rho',
+                'Pi',
+                'Delta',
+                'Associate Delta',
+                'Psi',
+                'Upsilon',
+                "Gamma's Theta",
+                'Phi',
+                'Omicron',
+                'Mu',
+                'Pledge'
+            ];
+
+            // Expose functions to global scope for inline event handlers
+            window.RosterManager = {
+                updateField: function(index, field, value) {
+                    currentData[index][field] = value;
+                    checkForChanges();
+                }
+            };
+
+            // Function to update positions from checkboxes
+            function updatePositions(index) {
+                const dropdown = document.getElementById(`position-dropdown-${index}`);
+                const checkboxes = dropdown.querySelectorAll('input[type="checkbox"]:checked');
+                const selectedPositions = Array.from(checkboxes).map(cb => cb.value);
+
+                // Update the display input
+                const displayInput = dropdown.previousElementSibling;
+                displayInput.value = selectedPositions.length > 0 ?
+                    selectedPositions.join(', ') : 'Select positions...';
+
+                // Update the data
+                currentData[index].position = selectedPositions.join(', ');
+                checkForChanges();
+            }
+
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.multi-select-container')) {
+                    document.querySelectorAll('.multi-select-dropdown').forEach(d => {
+                        d.classList.remove('show');
+                    });
+                }
+            });
+
+            // Function to initialize the page
+            function initializePage() {
+                console.log('=== INITIALIZING ROSTER MANAGEMENT ===');
+
+                // Check for data from different sources
+                if (!initialRosterData && window.preloadedRosterData) {
+                    console.log('Using preloadedRosterData from window');
+                    initialRosterData = window.preloadedRosterData;
+                }
+
+                console.log('Initial roster data status:', {
+                    available: !!initialRosterData,
+                    count: initialRosterData ? initialRosterData.length : 0,
+                    source: window.preloadedRosterData ? 'preloaded' : 'template'
+                });
+
+                // Use the data that was already loaded from server
+                if (initialRosterData && initialRosterData.length > 0) {
+                    console.log('SUCCESS: Rendering', initialRosterData.length, 'brothers');
+                    console.log('Sample data - First brother:', initialRosterData[0]);
+
+                    originalData = JSON.parse(JSON.stringify(initialRosterData));
+                    currentData = JSON.parse(JSON.stringify(initialRosterData));
+
+                    console.log('Calling renderTable with', currentData.length, 'items');
+                    renderTable(currentData);
+                    renderCards(currentData);
+                    showStatus(`Loaded ${initialRosterData.length} brothers`, 'success');
+                } else {
+                    console.log('WARNING: No initial roster data found');
+                    console.log('Attempting to load via API call...');
+                    showStatus('Loading roster data...', 'info');
+                    loadRosterData();
+                }
+
+                setupSearchFilter();
+                setupModalHandlers();
+
+                // Bind button event handlers
+                document.getElementById('refreshBtn').addEventListener('click', refreshData);
+                document.getElementById('saveOverlayBtn').addEventListener('click', saveChanges);
+                document.getElementById('addBrotherBtn').addEventListener('click', openAddModal);
+                document.getElementById('bulkDeleteBtn').addEventListener('click', bulkDeleteBrothers);
+                document.getElementById('selectAllCheckbox').addEventListener('change', toggleSelectAll);
+            }
+
+            // Initialize when DOM is ready - handle both regular and dynamic loading
+            if (document.readyState === 'loading') {
+                console.log('Document still loading, waiting for DOMContentLoaded');
+                document.addEventListener('DOMContentLoaded', initializePage);
+            } else {
+                console.log('Document already loaded, initializing immediately');
+                // DOM is already loaded (happens when dynamically injected)
+                setTimeout(initializePage, 0); // Use setTimeout to ensure all scripts are executed
+            }
+
+            function showStatus(message, type) {
+                const statusEl = document.getElementById('statusMessage');
+                statusEl.textContent = message;
+                statusEl.className = `status-message ${type}`;
+                statusEl.style.display = 'block';
+
+                if (type !== 'error') {
+                    setTimeout(() => {
+                        statusEl.style.display = 'none';
+                    }, 3000);
+                }
+            }
+
+            function showLoading(show) {
+                document.getElementById('loadingSpinner').style.display = show ? 'block' : 'none';
+            }
+
+            function loadRosterData() {
+                // This function is now only called if initial data loading fails
+                // Since we're not using session validation, just show an error
+                showStatus('Unable to load roster data. Please refresh the page.', 'error');
+            }
+
+            function displayLastModified(info) {
+                const header = document.querySelector('.header');
+                let infoDiv = document.getElementById('lastModifiedInfo');
+
+                if (!infoDiv) {
+                    infoDiv = document.createElement('div');
+                    infoDiv.id = 'lastModifiedInfo';
+                    infoDiv.style.cssText = 'text-align: center; font-size: 0.85rem; color: rgba(255, 215, 0, 0.7); margin-top: 0.5rem;';
+                    header.appendChild(infoDiv);
+                }
+
+                const date = new Date(info.timestamp);
+                infoDiv.textContent = `Last modified by ${info.name} on ${date.toLocaleDateString()} at ${date.toLocaleTimeString()}`;
+            }
+
+            // Helper function to escape HTML special characters
+            function escapeHtml(str) {
+                if (str == null) return '';
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            function renderTable(data) {
+                console.log('=== renderTable called ===');
+                console.log('Data type:', typeof data);
+                console.log('Data is array?', Array.isArray(data));
+                console.log('Number of items:', data ? data.length : 'null/undefined');
+
+                const tbody = document.getElementById('rosterBody');
+
+                if (!tbody) {
+                    console.error('ERROR: rosterBody element not found in DOM!');
+                    return;
+                }
+
+                tbody.innerHTML = '';
+
+                if (!data || data.length === 0) {
+                    console.log('No data to render - showing empty message');
+                    tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 2rem;">No roster data available</td></tr>';
+                    return;
+                }
+
+                console.log('Starting to render brothers using DOM methods...');
+
+                // Build table rows using DOM methods instead of innerHTML to avoid escaping issues
+                data.forEach((brother, index) => {
+                    if (index < 3) { // Log first 3 for debugging
+                        console.log(`Brother ${index}:`, {
+                            email: brother.email,
+                            name: brother.name,
+                            position: brother.position
+                        });
+                    }
+
+                    const row = document.createElement('tr');
+
+                    // Checkbox cell
+                    const checkboxCell = document.createElement('td');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'brother-checkbox';
+                    checkbox.dataset.email = brother.email;
+                    checkbox.dataset.index = index;
+                    checkbox.checked = selectedBrothers.has(brother.email);
+                    checkbox.onchange = function() {
+                        handleBrotherCheckbox(brother.email, this.checked);
+                    };
+                    checkboxCell.appendChild(checkbox);
+                    row.appendChild(checkboxCell);
+
+                    // Name cell
+                    const nameCell = document.createElement('td');
+                    const nameInput = document.createElement('input');
+                    nameInput.type = 'text';
+                    nameInput.className = 'editable';
+                    nameInput.value = brother.name || '';
+                    nameInput.dataset.field = 'name';
+                    nameInput.dataset.index = index;
+                    nameInput.onchange = function() {
+                        RosterManager.updateField(index, 'name', this.value);
+                    };
+                    nameCell.appendChild(nameInput);
+                    row.appendChild(nameCell);
+
+                    // Email cell
+                    const emailCell = document.createElement('td');
+                    const emailInput = document.createElement('input');
+                    emailInput.type = 'email';
+                    emailInput.className = 'editable';
+                    emailInput.value = brother.email || '';
+                    emailInput.dataset.field = 'email';
+                    emailInput.dataset.index = index;
+                    emailInput.onchange = function() {
+                        RosterManager.updateField(index, 'email', this.value);
+                    };
+                    emailCell.appendChild(emailInput);
+                    row.appendChild(emailCell);
+
+                    // Position cell - multi-select dropdown
+                    const positionCell = document.createElement('td');
+                    const multiSelectContainer = document.createElement('div');
+                    multiSelectContainer.className = 'multi-select-container';
+
+                    // Create the display input
+                    const displayInput = document.createElement('input');
+                    displayInput.type = 'text';
+                    displayInput.className = 'multi-select-input';
+                    displayInput.readOnly = true;
+                    displayInput.value = brother.position || 'Select positions...';
+                    displayInput.dataset.index = index;
+
+                    // Create the dropdown
+                    const dropdown = document.createElement('div');
+                    dropdown.className = 'multi-select-dropdown';
+                    dropdown.id = `position-dropdown-${index}`;
+
+                    // Parse current positions
+                    const currentPositions = brother.position ?
+                        brother.position.split(',').map(p => p.trim()).filter(p => p && p !== 'None') : [];
+
+                    // Create checkboxes for each position
+                    officerPositions.forEach(pos => {
+                        if (pos === 'None') return; // Skip 'None' option
+
+                        const option = document.createElement('div');
+                        option.className = 'multi-select-option';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.id = `pos-${index}-${pos}`;
+                        checkbox.value = pos;
+                        checkbox.checked = currentPositions.includes(pos);
+
+                        const label = document.createElement('label');
+                        label.htmlFor = checkbox.id;
+                        label.textContent = pos;
+
+                        // Handle checkbox change
+                        checkbox.onchange = function() {
+                            updatePositions(index);
+                        };
+
+                        option.appendChild(checkbox);
+                        option.appendChild(label);
+                        dropdown.appendChild(option);
+                    });
+
+                    // Toggle dropdown on input click
+                    displayInput.onclick = function(e) {
+                        e.stopPropagation();
+                        const allDropdowns = document.querySelectorAll('.multi-select-dropdown');
+                        allDropdowns.forEach(d => {
+                            if (d.id !== dropdown.id) d.classList.remove('show');
+                        });
+                        dropdown.classList.toggle('show');
+                    };
+
+                    multiSelectContainer.appendChild(displayInput);
+                    multiSelectContainer.appendChild(dropdown);
+                    positionCell.appendChild(multiSelectContainer);
+                    row.appendChild(positionCell);
+
+                    // Action cell with remove button
+                    const actionCell = document.createElement('td');
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn-remove';
+                    removeBtn.textContent = 'Remove';
+                    removeBtn.onclick = function() {
+                        removeBrother(index);
+                    };
+                    actionCell.appendChild(removeBtn);
+                    row.appendChild(actionCell);
+
+                    tbody.appendChild(row);
+                });
+
+                console.log('=== renderTable COMPLETED ===');
+                console.log('Rendered', data.length, 'rows in table');
+                console.log('Table tbody now has', tbody.children.length, 'child rows');
+
+                // Force a check to make sure the table is visible
+                const tableContainer = document.getElementById('rosterContainer');
+                if (tableContainer) {
+                    console.log('Table container display:', window.getComputedStyle(tableContainer).display);
+                    console.log('Table container visibility:', window.getComputedStyle(tableContainer).visibility);
+                } else {
+                    console.error('ERROR: rosterContainer not found!');
+                }
+            }
+
+            function checkForChanges() {
+                // Check if there are changes in data or removed brothers
+                const dataChanged = JSON.stringify(originalData) !== JSON.stringify(currentData);
+                hasChanges = dataChanged || removedBrothers.length > 0;
+
+                const saveOverlay = document.getElementById('saveOverlay');
+
+                if (hasChanges) {
+                    // Show save overlay
+                    saveOverlay.classList.add('show');
+                } else {
+                    // Hide save overlay
+                    saveOverlay.classList.remove('show');
+                }
+            }
+
+            function removeBrother(index) {
+                const brother = currentData[index];
+
+                // First confirmation
+                if (!confirm(`Are you sure you want to remove ${brother.name} from the roster? This action cannot be undone.`)) {
+                    return;
+                }
+
+                // Second confirmation with DELETE prompt
+                const userInput = prompt(`To confirm deletion, type "DELETE" (all caps):`);
+                if (userInput !== 'DELETE') {
+                    showStatus('Deletion cancelled', 'info');
+                    return;
+                }
+
+                // Add to removed list if this was an existing brother
+                if (originalData.some(b => b.email === brother.email)) {
+                    removedBrothers.push(brother);
+                }
+
+                // Remove from current data
+                currentData.splice(index, 1);
+
+                // Clear from selection if it was selected
+                selectedBrothers.delete(brother.email);
+
+                // Re-render table and cards
+                renderTable(currentData);
+                renderCards(currentData);
+                checkForChanges();
+                updateBulkDeleteButton();
+                showStatus(`Removed ${brother.name} from roster. Remember to save changes.`, 'info');
+            }
+
+            let brotherFormCount = 0;
+
+            function createBrotherForm(index) {
+                const formDiv = document.createElement('div');
+                formDiv.id = `brother-form-${index}`;
+                formDiv.style.cssText = 'border: 1px solid rgba(255, 215, 0, 0.3); border-radius: 15px; padding: 1rem; margin-bottom: 1rem; background: rgba(255, 215, 0, 0.05);';
+
+                formDiv.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <h3 style="color: #ffd700; font-size: 1.1rem;">Brother ${index + 1}</h3>
+                        ${index > 0 ? `<button class="btn-remove" onclick="removeBrotherForm(${index})">Remove</button>` : ''}
+                    </div>
+                    <div class="form-group">
+                        <label for="newBrotherName-${index}">Name *</label>
+                        <input type="text" id="newBrotherName-${index}" placeholder="Enter brother's full name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newBrotherEmail-${index}">Email *</label>
+                        <input type="email" id="newBrotherEmail-${index}" placeholder="Enter brother's email address" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Officer Position(s)</label>
+                        <div style="max-height: 120px; overflow-y: auto; border: 1px solid #ffd700; border-radius: 10px; padding: 0.5rem; background: rgba(255, 215, 0, 0.05);">
+                            <div id="modalPositionCheckboxes-${index}">
+                                ${officerPositions.filter(pos => pos !== 'None').map(pos => `
+                                    <div style="padding: 0.3rem 0; display: flex; align-items: center; gap: 0.5rem;">
+                                        <input type="checkbox" id="modal-pos-${index}-${pos}" value="${pos}">
+                                        <label for="modal-pos-${index}-${pos}" style="cursor: pointer; color: #ffd700; font-size: 0.9rem;">${pos}</label>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        <small style="color: #ffd700; opacity: 0.7; font-size: 0.8rem; display: block; margin-top: 0.3rem;">
+                            Select all applicable positions
+                        </small>
+                    </div>
+                `;
+
+                return formDiv;
+            }
+
+            function openAddModal() {
+                const modal = document.getElementById('addBrotherModal');
+                const formsContainer = document.getElementById('brotherForms');
+
+                // Reset and add initial form
+                brotherFormCount = 0;
+                formsContainer.innerHTML = '';
+                formsContainer.appendChild(createBrotherForm(brotherFormCount));
+                brotherFormCount++;
+
+                modal.style.display = 'block';
+            }
+
+            function addAnotherBrotherForm() {
+                const formsContainer = document.getElementById('brotherForms');
+                formsContainer.appendChild(createBrotherForm(brotherFormCount));
+                brotherFormCount++;
+            }
+
+            function removeBrotherForm(index) {
+                const form = document.getElementById(`brother-form-${index}`);
+                if (form) {
+                    form.remove();
+                }
+            }
+
+            function closeAddModal() {
+                document.getElementById('addBrotherModal').style.display = 'none';
+            }
+
+            function confirmAddBrothers() {
+                const formsContainer = document.getElementById('brotherForms');
+                const forms = formsContainer.querySelectorAll('[id^="brother-form-"]');
+                const newBrothers = [];
+                const errors = [];
+
+                forms.forEach((form, index) => {
+                    const formId = form.id.split('-')[2];
+                    const name = document.getElementById(`newBrotherName-${formId}`).value.trim();
+                    const email = document.getElementById(`newBrotherEmail-${formId}`).value.trim();
+
+                    // Get selected positions
+                    const selectedCheckboxes = form.querySelectorAll(`#modalPositionCheckboxes-${formId} input[type="checkbox"]:checked`);
+                    const selectedPositions = Array.from(selectedCheckboxes).map(cb => cb.value);
+                    const position = selectedPositions.join(', ');
+
+                    if (!name || !email) {
+                        errors.push(`Brother ${parseInt(formId) + 1}: Missing name or email`);
+                        return;
+                    }
+
+                    // Check for duplicate email in existing data
+                    if (currentData.some(b => b.email.toLowerCase() === email.toLowerCase())) {
+                        errors.push(`Brother ${parseInt(formId) + 1}: Email "${email}" already exists`);
+                        return;
+                    }
+
+                    // Check for duplicate email in new brothers
+                    if (newBrothers.some(b => b.email.toLowerCase() === email.toLowerCase())) {
+                        errors.push(`Brother ${parseInt(formId) + 1}: Duplicate email "${email}" in new brothers`);
+                        return;
+                    }
+
+                    newBrothers.push({
+                        name: name,
+                        email: email,
+                        position: position || ''
+                    });
+                });
+
+                if (errors.length > 0) {
+                    alert('Please fix the following errors:\n\n' + errors.join('\n'));
+                    return;
+                }
+
+                if (newBrothers.length === 0) {
+                    alert('No brothers to add');
+                    return;
+                }
+
+                // Add all new brothers
+                newBrothers.forEach(brother => {
+                    currentData.push(brother);
+                });
+
+                renderTable(currentData);
+                renderCards(currentData);
+                checkForChanges();
+                closeAddModal();
+
+                const message = newBrothers.length === 1
+                    ? `Added ${newBrothers[0].name} to the roster.`
+                    : `Added ${newBrothers.length} brothers to the roster.`;
+                showStatus(message + ' Remember to save changes.', 'success');
+            }
+
+            function setupModalHandlers() {
+                // Close modal when clicking X
+                const closeBtn = document.querySelector('.modal-close');
+                if (closeBtn) {
+                    closeBtn.onclick = closeAddModal;
+                }
+
+                // Removed the feature to close modal when clicking outside
+                // to prevent accidental closure and loss of entered data
+            }
+
+            // Make functions globally accessible
+            window.closeAddModal = closeAddModal;
+            window.confirmAddBrothers = confirmAddBrothers;
+            window.addAnotherBrotherForm = addAnotherBrotherForm;
+            window.removeBrotherForm = removeBrotherForm;
+            window.updatePositions = updatePositions;
+
+            async function saveChanges() {
+                if (!hasChanges) return;
+
+                if (!confirm('Are you sure you want to save these changes to the roster?')) {
+                    return;
+                }
+
+                showLoading(true);
+                showStatus('Saving changes...', 'info');
+
+                // Disable save overlay button during save
+                const saveOverlayBtn = document.getElementById('saveOverlayBtn');
+                saveOverlayBtn.disabled = true;
+                const originalBtnText = saveOverlayBtn.textContent;
+                saveOverlayBtn.textContent = 'Saving...';
+
+                // Prepare the data to send - include removed brothers info
+                const changesData = {
+                    updatedRoster: currentData,
+                    removedBrothers: removedBrothers
+                };
+
+                try {
+                    // Use the parent window's apiCallWithStrategy function if available
+                    // This gives us access to the retry logic from home.html
+                    let result;
+
+                    if (window.parent && window.parent.apiCallWithStrategy) {
+                        // We're in an iframe and have access to parent's retry logic
+                        result = await window.parent.apiCallWithStrategy(
+                            'saveRosterChangesSimple',
+                            [changesData],
+                            'CREATE'  // Use CREATE strategy since we're modifying data
+                        );
+                    } else if (window.apiCallWithStrategy) {
+                        // We're not in an iframe but have the function available (dynamically loaded)
+                        result = await apiCallWithStrategy(
+                            'saveRosterChangesSimple',
+                            [changesData],
+                            'CREATE'
+                        );
+                    } else {
+                        // Fallback to standard Google Apps Script call
+                        const fetchResp = await fetch('/api/roster/save' + window.location.search, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(changesData)
+                        });
+                        result = await fetchResp.json();
+                    }
+
+                    showLoading(false);
+                    saveOverlayBtn.disabled = false;
+                    saveOverlayBtn.textContent = originalBtnText;
+
+                    if (result.success) {
+                        showStatus(`✓ Changes saved successfully! ${result.message}`, 'success');
+
+                        // Update the original data to reflect saved state
+                        originalData = JSON.parse(JSON.stringify(currentData));
+                        removedBrothers = []; // Clear removed list after successful save
+
+                        // Reset the UI state
+                        checkForChanges();
+
+                        // Don't reload - just continue with current data
+                        // The data is already updated locally
+
+                    } else {
+                        // Check if it might be a duplicate submission
+                        if (result.message && result.message.includes('already')) {
+                            showStatus('Changes may have already been saved. Refreshing...', 'info');
+                            setTimeout(() => refreshData(), 2000);
+                        } else {
+                            showStatus('Error saving changes: ' + (result.message || 'Unknown error'), 'error');
+                        }
+                    }
+                } catch (error) {
+                    showLoading(false);
+                    saveOverlayBtn.disabled = false;
+                    saveOverlayBtn.textContent = originalBtnText;
+
+                    // Check if it's a lock-related error
+                    if (error.message && error.message.toLowerCase().includes('lock')) {
+                        showStatus('The roster is being edited by another user. Please try again in a moment.', 'warning');
+                    } else {
+                        showStatus('Failed to save changes after retries. Error: ' + (error.message || 'Unknown error'), 'error');
+                    }
+
+                    console.error('Roster save error:', error);
+                }
+            }
+
+            function refreshData() {
+                if (hasChanges) {
+                    if (!confirm('You have unsaved changes. Are you sure you want to refresh?')) {
+                        return;
+                    }
+                }
+
+                // Re-use the initial data if available, otherwise show error
+                if (window.preloadedRosterData && window.preloadedRosterData.length > 0) {
+                    originalData = JSON.parse(JSON.stringify(window.preloadedRosterData));
+                    currentData = JSON.parse(JSON.stringify(window.preloadedRosterData));
+                    removedBrothers = [];
+                    renderTable(currentData);
+                    renderCards(currentData);
+                    checkForChanges();
+                    showStatus('Data refreshed', 'success');
+                } else {
+                    showStatus('Unable to refresh data. Please reload the page.', 'error');
+                }
+            }
+
+            function setupSearchFilter() {
+                const searchInput = document.getElementById('searchInput');
+                searchInput.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const filteredData = currentData.filter(brother => {
+                        // Check name
+                        if (brother.name && brother.name.toLowerCase().includes(searchTerm)) {
+                            return true;
+                        }
+                        // Check email
+                        if (brother.email && brother.email.toLowerCase().includes(searchTerm)) {
+                            return true;
+                        }
+                        // Check positions (handle comma-separated values)
+                        if (brother.position) {
+                            const positions = brother.position.split(',').map(p => p.trim().toLowerCase());
+                            return positions.some(pos => pos.includes(searchTerm));
+                        }
+                        return false;
+                    });
+                    renderTable(searchTerm ? filteredData : currentData);
+                    renderCards(searchTerm ? filteredData : currentData);
+                });
+            }
+
+            // Render mobile card view
+            function renderCards(data) {
+                const cardsContainer = document.getElementById('contactsCards');
+                if (!cardsContainer) return;
+
+                cardsContainer.innerHTML = '';
+
+                if (!data || data.length === 0) {
+                    cardsContainer.innerHTML = '<div style="text-align: center; padding: 2rem; color: rgba(255, 215, 0, 0.6);">No contacts available</div>';
+                    return;
+                }
+
+                data.forEach((brother, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'contact-card';
+                    if (selectedBrothers.has(brother.email)) {
+                        card.classList.add('selected');
+                    }
+
+                    // Add checkbox to card
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'contact-card-checkbox';
+                    checkbox.dataset.email = brother.email;
+                    checkbox.checked = selectedBrothers.has(brother.email);
+                    checkbox.onclick = (e) => {
+                        e.stopPropagation();
+                        handleBrotherCheckbox(brother.email, e.target.checked);
+                        // Toggle selected class on card
+                        if (e.target.checked) {
+                            card.classList.add('selected');
+                        } else {
+                            card.classList.remove('selected');
+                        }
+                    };
+                    card.appendChild(checkbox);
+
+                    const content = document.createElement('div');
+                    content.className = 'contact-card-content';
+
+                    const header = document.createElement('div');
+                    header.className = 'contact-card-header';
+
+                    const info = document.createElement('div');
+
+                    const name = document.createElement('div');
+                    name.className = 'contact-card-name';
+                    name.textContent = brother.name ||'Unnamed';
+
+                    const email = document.createElement('div');
+                    email.className = 'contact-card-email';
+                    email.textContent = brother.email || 'No email';
+
+                    info.appendChild(name);
+                    info.appendChild(email);
+
+                    const menuBtn = document.createElement('button');
+                    menuBtn.className = 'card-menu-btn';
+                    menuBtn.innerHTML = '⋮';
+                    menuBtn.onclick = () => openEditModal(index);
+
+                    header.appendChild(info);
+                    header.appendChild(menuBtn);
+
+                    content.appendChild(header);
+
+                    if (brother.position) {
+                        const positions = document.createElement('div');
+                        positions.className = 'contact-card-positions';
+
+                        const label = document.createElement('div');
+                        label.className = 'contact-card-positions-label';
+                        label.textContent = 'Officer Positions';
+
+                        const value = document.createElement('div');
+                        value.className = 'contact-card-positions-value';
+                        value.textContent = brother.position || 'None';
+
+                        positions.appendChild(label);
+                        positions.appendChild(value);
+                        content.appendChild(positions);
+                    }
+
+                    card.appendChild(content);
+                    cardsContainer.appendChild(card);
+                });
+            }
+
+            // Track current editing index
+            let editingIndex = null;
+
+            // Open edit modal for a contact
+            function openEditModal(index) {
+                editingIndex = index;
+                const brother = currentData[index];
+
+                document.getElementById('editName').value = brother.name || '';
+                document.getElementById('editEmail').value = brother.email || '';
+
+                // Populate position checkboxes
+                const checkboxesContainer = document.getElementById('editPositionCheckboxes');
+                checkboxesContainer.innerHTML = '';
+
+                const currentPositions = brother.position ?
+                    brother.position.split(',').map(p => p.trim()).filter(p => p && p !== 'None') : [];
+
+                officerPositions.forEach(pos => {
+                    if (pos === 'None') return;
+
+                    const div = document.createElement('div');
+                    div.style.cssText = 'padding: 0.5rem 0; display: flex; align-items: center; gap: 0.5rem;';
+
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.id = `edit-pos-${pos}`;
+                    checkbox.value = pos;
+                    checkbox.checked = currentPositions.includes(pos);
+                    checkbox.style.cssText = 'width: 20px; height: 20px;';
+
+                    const label = document.createElement('label');
+                    label.htmlFor = checkbox.id;
+                    label.textContent = pos;
+                    label.style.cssText = 'cursor: pointer; color: #ffd700; font-size: 0.95rem;';
+
+                    div.appendChild(checkbox);
+                    div.appendChild(label);
+                    checkboxesContainer.appendChild(div);
+                });
+
+                document.getElementById('editContactModal').style.display = 'block';
+            }
+
+            // Close edit modal
+            function closeEditModal() {
+                document.getElementById('editContactModal').style.display = 'none';
+                editingIndex = null;
+            }
+
+            // Save contact edit
+            function saveContactEdit() {
+                if (editingIndex === null) return;
+
+                const name = document.getElementById('editName').value.trim();
+                const email = document.getElementById('editEmail').value.trim();
+
+                if (!name || !email) {
+                    alert('Name and email are required');
+                    return;
+                }
+
+                // Get selected positions
+                const selectedCheckboxes = document.querySelectorAll('#editPositionCheckboxes input[type="checkbox"]:checked');
+                const selectedPositions = Array.from(selectedCheckboxes).map(cb => cb.value);
+                const position = selectedPositions.join(', ');
+
+                // Update the data
+                currentData[editingIndex].name = name;
+                currentData[editingIndex].email = email;
+                currentData[editingIndex].position = position;
+
+                // Re-render both views
+                renderTable(currentData);
+                renderCards(currentData);
+                checkForChanges();
+                closeEditModal();
+
+                showStatus('Contact updated. Remember to save changes.', 'success');
+            }
+
+            // Delete contact from modal
+            function deleteContactFromModal() {
+                if (editingIndex === null) return;
+
+                const brother = currentData[editingIndex];
+
+                // First confirmation
+                if (!confirm(`Are you sure you want to remove ${brother.name} from the roster? This action cannot be undone.`)) {
+                    return;
+                }
+
+                // Second confirmation with DELETE prompt
+                const userInput = prompt(`To confirm deletion, type "DELETE" (all caps):`);
+                if (userInput !== 'DELETE') {
+                    showStatus('Deletion cancelled', 'info');
+                    return;
+                }
+
+                // Add to removed list if this was an existing brother
+                if (originalData.some(b => b.email === brother.email)) {
+                    removedBrothers.push(brother);
+                }
+
+                currentData.splice(editingIndex, 1);
+
+                // Clear from selection if it was selected
+                selectedBrothers.delete(brother.email);
+
+                renderTable(currentData);
+                renderCards(currentData);
+                checkForChanges();
+                updateBulkDeleteButton();
+                closeEditModal();
+
+                showStatus(`Removed ${brother.name} from roster. Remember to save changes.`, 'info');
+            }
+
+            // Make functions globally accessible
+            window.openEditModal = openEditModal;
+            window.closeEditModal = closeEditModal;
+            window.saveContactEdit = saveContactEdit;
+            window.deleteContactFromModal = deleteContactFromModal;
+
+            // Handle individual brother checkbox
+            function handleBrotherCheckbox(email, checked) {
+                if (checked) {
+                    selectedBrothers.add(email);
+                } else {
+                    selectedBrothers.delete(email);
+                }
+                updateBulkDeleteButton();
+                updateSelectAllCheckbox();
+            }
+
+            // Toggle select all checkbox
+            function toggleSelectAll() {
+                const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                const checkboxes = document.querySelectorAll('.brother-checkbox');
+
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = selectAllCheckbox.checked;
+                    const email = checkbox.dataset.email;
+                    if (selectAllCheckbox.checked) {
+                        selectedBrothers.add(email);
+                    } else {
+                        selectedBrothers.delete(email);
+                    }
+                });
+
+                updateBulkDeleteButton();
+            }
+
+            // Update select all checkbox based on individual selections
+            function updateSelectAllCheckbox() {
+                const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+                const checkboxes = document.querySelectorAll('.brother-checkbox');
+                const checkedCount = document.querySelectorAll('.brother-checkbox:checked').length;
+
+                if (checkedCount === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                } else if (checkedCount === checkboxes.length) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
+            }
+
+            // Update bulk delete button visibility
+            function updateBulkDeleteButton() {
+                const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+                if (selectedBrothers.size > 0) {
+                    bulkDeleteBtn.classList.add('show');
+                    bulkDeleteBtn.textContent = `Delete Selected (${selectedBrothers.size})`;
+                } else {
+                    bulkDeleteBtn.classList.remove('show');
+                }
+            }
+
+            // Bulk delete brothers
+            function bulkDeleteBrothers() {
+                if (selectedBrothers.size === 0) return;
+
+                const selectedEmails = Array.from(selectedBrothers);
+                const brothersToDelete = currentData.filter(b => selectedEmails.includes(b.email));
+                const count = brothersToDelete.length;
+
+                // First confirmation
+                if (!confirm(`Are you sure you want to remove ${count} brother${count !== 1 ? 's' : ''} from the roster? This action cannot be undone.`)) {
+                    return;
+                }
+
+                // Second confirmation with DELETE prompt
+                const userInput = prompt(`To confirm deletion of ${count} brother${count !== 1 ? 's' : ''}, type "DELETE" (all caps):`);
+                if (userInput !== 'DELETE') {
+                    showStatus('Bulk deletion cancelled', 'info');
+                    return;
+                }
+
+                // Add to removed list if they were existing brothers
+                brothersToDelete.forEach(brother => {
+                    if (originalData.some(b => b.email === brother.email)) {
+                        removedBrothers.push(brother);
+                    }
+                });
+
+                // Remove from current data
+                currentData = currentData.filter(b => !selectedEmails.includes(b.email));
+
+                // Clear selections
+                selectedBrothers.clear();
+
+                // Re-render table and cards
+                renderTable(currentData);
+                renderCards(currentData);
+                checkForChanges();
+                updateBulkDeleteButton();
+                updateSelectAllCheckbox();
+
+                showStatus(`Removed ${count} brother${count !== 1 ? 's' : ''} from roster. Remember to save changes.`, 'success');
+            }
+
+            // Warn before leaving page with unsaved changes
+            window.addEventListener('beforeunload', function(e) {
+                if (hasChanges) {
+                    e.preventDefault();
+                    e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                }
+            });
+        })(); // End of IIFE
+    </script>
+</body>
+</html>

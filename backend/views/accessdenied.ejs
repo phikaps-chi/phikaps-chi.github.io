@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Access Denied</title>
+ <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background-color: #f8f8f8;
+      color: #333;
+      text-align: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+    .container {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      padding: 40px;
+      max-width: 500px;
+      width: 100%;
+    }
+    h1 {
+      color: #d9534f; /* Red color for error */
+      margin-bottom: 20px;
+    }
+    p {
+      margin-bottom: 15px;
+      line-height: 1.6;
+    }
+    .button-group {
+      margin-top: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px; /* Space between buttons */
+      align-items: center;
+    }
+    .login-button, .action-button {
+      background-color: #4CAF50; /* Green button */
+      color: white;
+      padding: 12px 25px;
+      border: none;
+      border-radius: 5px;
+      font-size: 1em;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+      width: fit-content; /* Adjust width to content */
+    }
+    .login-button:hover, .action-button:hover {
+      background-color: #45a049;
+    }
+    .action-button.secondary {
+      background-color: #007bff; /* Blue for secondary actions */
+    }
+    .action-button.secondary:hover {
+      background-color: #0056b3;
+    }
+    .action-button.tertiary {
+      background-color: #6c757d; /* Grey for tertiary actions */
+    }
+    .action-button.tertiary:hover {
+      background-color: #5a6268;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Access Denied</h1>
+    <p>It looks like you are not authorized to view this content, or you need to log in with a Google account that has access.</p>
+    <p>Please ensure you are signed in with the correct Google account.</p>
+    
+    <div class="button-group">
+      <a class="action-button secondary" href="#">Switch Google Account</a>
+      <a class="action-button tertiary" href="#">Sign Out of Google</a>
+    </div>
+
+    <p><small style="margin-top: 20px; display: block;">If you believe this is an error, please contact phikaps-chi@mit.edu.</small></p>
+  </div>
+
+  <script>
+    // run only once the elements exist
+    window.addEventListener('DOMContentLoaded', function() {
+      var continueUrl = encodeURIComponent(window.top.location.href);
+      var chooserLink = document.querySelector('a.action-button.secondary');
+      var logoutLink  = document.querySelector('a.action-button.tertiary');
+
+      chooserLink.href = 'https://accounts.google.com/AccountChooser?continue=' + continueUrl;
+      logoutLink .href = 'https://accounts.google.com/Logout?continue='       + continueUrl;
+    });
+  </script>
+</body>
+</html>
+

@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rush Archive</title>
+    <style>
+        :root {
+            --gold: #FFD700;
+            --gold-dark: #FFAA00;
+            --bg-dark: #121212;
+            --bg-light: #1E1E1E;
+            --text-primary: #FFFFFF;
+            --text-secondary: #A0A0A0;
+            --border-color: rgba(255, 215, 0, 0.2);
+            --radius-md: 12px;
+            --radius-lg: 16px;
+            --shadow-sm: 0 4px 15px rgba(0, 0, 0, 0.2);
+            --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.3);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 1.5rem;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* --- Header & Typography --- */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(45deg, var(--gold), var(--gold-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: clamp(1rem, 2vw, 1.25rem);
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        /* --- Actions & Search --- */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+            padding: 1.5rem;
+            background-color: var(--bg-light);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .search-container {
+            flex: 1 1 400px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.8rem 1.25rem 0.8rem 3rem;
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background-color: var(--bg-dark);
+            font-size: 1rem;
+            color: var(--text-primary);
+            transition: var(--transition);
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1.25rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+        
+        .actions-bar {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.8rem 1.75rem;
+            border-radius: var(--radius-md);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, var(--gold), var(--gold-dark));
+            color: #000;
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 7px 25px rgba(255, 215, 0, 0.4);
+        }
+        
+        .btn-secondary {
+            background-color: transparent;
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .btn-secondary:hover {
+            background-color: var(--gold);
+            border-color: var(--gold);
+            color: #000;
+        }
+
+        /* --- Rush Grid --- */
+        .rush-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .rush-card {
+            background-color: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .rush-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--gold);
+            box-shadow: var(--shadow-md);
+        }
+
+        .card-header {
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gold);
+            margin-bottom: 0.25rem;
+        }
+
+        .card-date {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .card-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+            flex-grow: 1; /* Allows description to take up space */
+        }
+
+        /* Lock badge */
+        .lock-badge {
+            font-size: 0.9rem;
+            margin-left: 0.5rem;
+            opacity: 0.8;
+        }
+
+        /* Locked rush card styling */
+        .rush-card.locked {
+            border-color: rgba(255, 165, 0, 0.3);
+            background: linear-gradient(135deg, rgba(255, 165, 0, 0.05) 0%, var(--bg-light) 100%);
+        }
+
+        /* Statistics display */
+        .card-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255, 215, 0, 0.05);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .card-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            justify-content: flex-start;
+            border-top: 1px solid var(--border-color);
+            padding-top: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn-small {
+            padding: 0.6rem 1.25rem;
+            font-size: 0.9rem;
+            border-radius: var(--radius-md);
+        }
+
+        .btn-view {
+             background: linear-gradient(45deg, var(--gold), var(--gold-dark));
+             color: #000;
+        }
+        
+        .btn-edit {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+        }
+
+        .btn-edit:hover {
+            background-color: var(--gold);
+            color: #000;
+        }
+
+        .btn-delete {
+            background-color: rgba(255, 82, 82, 0.1);
+            color: #FF5252;
+            border: 1px solid rgba(255, 82, 82, 0.2);
+        }
+        
+        .btn-delete:hover {
+            background-color: #FF5252;
+            color: var(--text-primary);
+        }
+
+        .btn-lock {
+            background-color: rgba(255, 165, 0, 0.1);
+            color: #FFA500;
+            border: 1px solid rgba(255, 165, 0, 0.2);
+        }
+
+        .btn-lock:hover {
+            background-color: #FFA500;
+            color: #000;
+        }
+
+        .btn-unlock {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+            border: 1px solid rgba(76, 175, 80, 0.2);
+        }
+
+        .btn-unlock:hover {
+            background-color: #4CAF50;
+            color: var(--text-primary);
+        }
+
+        /* --- Modal --- */
+        .modal {
+            display: none; /* Set to flex by JS */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        .modal-content {
+            background-color: var(--bg-light);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Leaderboard Modal - wider to accommodate stats */
+        .leaderboard-modal-content {
+            max-width: 700px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .leaderboard-subtitle {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 0.5rem;
+        }
+
+        .leaderboard-content {
+            min-height: 200px;
+        }
+
+        .leaderboard-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: rgba(255, 215, 0, 0.05);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .leaderboard-stat {
+            text-align: center;
+        }
+
+        .leaderboard-stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--gold);
+            display: block;
+        }
+
+        .leaderboard-stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 0.25rem;
+        }
+
+        .leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            transition: var(--transition);
+        }
+
+        .leaderboard-item:hover {
+            background: rgba(255, 215, 0, 0.05);
+            border-color: var(--gold);
+        }
+
+        /* Top 3 special styling */
+        .leaderboard-item.rank-1 {
+            border-color: var(--gold);
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.15) 0%, rgba(255, 215, 0, 0.05) 100%);
+        }
+
+        .leaderboard-item.rank-2 {
+            border-color: #C0C0C0;
+            background: linear-gradient(135deg, rgba(192, 192, 192, 0.1) 0%, rgba(192, 192, 192, 0.03) 100%);
+        }
+
+        .leaderboard-item.rank-3 {
+            border-color: #CD7F32;
+            background: linear-gradient(135deg, rgba(205, 127, 50, 0.1) 0%, rgba(205, 127, 50, 0.03) 100%);
+        }
+
+        .leaderboard-rank {
+            font-size: 1.5rem;
+            font-weight: 700;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .rank-1 .leaderboard-rank {
+            color: var(--gold);
+        }
+
+        .rank-2 .leaderboard-rank {
+            color: #C0C0C0;
+        }
+
+        .rank-3 .leaderboard-rank {
+            color: #CD7F32;
+        }
+
+        .leaderboard-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .leaderboard-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .leaderboard-details {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .leaderboard-points {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--gold);
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .badges-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Mobile responsiveness for leaderboard */
+        @media (max-width: 768px) {
+            .leaderboard-modal-content {
+                max-width: 95vw !important;
+                margin: 1rem;
+                padding: 1.5rem 1rem;
+            }
+
+            .leaderboard-stats {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 0.5rem;
+                padding: 1rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .leaderboard-stat-value {
+                font-size: 1.5rem;
+            }
+
+            .leaderboard-stat-label {
+                font-size: 0.65rem;
+            }
+
+            .leaderboard-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 0.75rem;
+            }
+
+            .leaderboard-rank {
+                font-size: 1.2rem;
+                min-width: auto;
+                align-self: flex-start;
+            }
+
+            .leaderboard-info {
+                width: 100%;
+            }
+
+            .leaderboard-name {
+                font-size: 1rem;
+            }
+
+            .leaderboard-details {
+                gap: 0.5rem;
+                font-size: 0.8rem;
+            }
+
+            .leaderboard-points {
+                font-size: 1.3rem;
+                min-width: auto;
+                text-align: left;
+                align-self: flex-start;
+            }
+
+            .modal-title {
+                font-size: 1.3rem;
+            }
+
+            .badges-container {
+                gap: 0.4rem;
+            }
+
+            .badge {
+                font-size: 0.7rem;
+                padding: 0.2rem 0.5rem;
+            }
+
+            .badge-emoji {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .leaderboard-stats {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+
+            .leaderboard-stat {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.5rem;
+                background: rgba(0, 0, 0, 0.2);
+                border-radius: 8px;
+            }
+
+            .leaderboard-stat-value {
+                font-size: 1.3rem;
+                order: 2;
+            }
+
+            .leaderboard-stat-label {
+                font-size: 0.75rem;
+                text-align: left;
+                order: 1;
+            }
+
+            .leaderboard-details {
+                flex-direction: column;
+                gap: 0.3rem;
+            }
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.6rem;
+            background: rgba(255, 215, 0, 0.1);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 12px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .badge-tooltip {
+            display: none;
+            position: fixed;
+            background: var(--bg-light);
+            border: 2px solid var(--gold);
+            border-radius: 12px;
+            padding: 1rem 1.25rem;
+            z-index: 10000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-width: 300px;
+            pointer-events: none;
+        }
+
+        .badge-tooltip.show {
+            display: block;
+        }
+
+        .badge-tooltip-emoji {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .badge-tooltip-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gold);
+            margin-bottom: 0.5rem;
+        }
+
+        .badge-tooltip-description {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .badge-emoji {
+            font-size: 0.9rem;
+        }
+
+        .no-data-message {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 3rem 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .modal-header {
+            margin-bottom: 2rem;
+        }
+
+        .modal-title {
+            font-size: 1.75rem;
+            color: var(--gold);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.8rem 1rem;
+            background-color: var(--bg-dark);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: var(--transition);
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--gold);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+        }
+        
+        /* --- States & Overlays --- */
+        .empty-state, .no-results {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 4rem 1rem;
+            border: 2px dashed var(--border-color);
+            border-radius: var(--radius-lg);
+            display: none; /* Hidden by default */
+        }
+        
+        .empty-icon, .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .spinner {
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            border-top: 5px solid var(--gold);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-overlay {
+            display: none; /* Set to flex by JS */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(18, 18, 18, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 3000;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            gap: 1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Loading...</span>
+    </div>
+
+    <div class="container" id="appContainer">
+        <header class="header">
+            <h1 class="title">Rush Archive</h1>
+            <p class="subtitle">Manage and review past recruitment events.</p>
+        </header>
+
+        <section class="controls">
+            <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input
+                    type="text"
+                    class="search-input"
+                    id="searchInput"
+                    placeholder="Search by name or date..."
+                    autocomplete="off"
+                >
+            </div>
+            <div class="actions-bar">
+                <button class="btn btn-primary" onclick="openCreateModal()" id="createRushButton">✨ Create New Rush</button>
+            </div>
+        </section>
+
+        <main>
+            <div id="resultsInfo"></div> <!-- This can be styled or removed if not used -->
+            <div class="rush-grid" id="rushGrid">
+                <!-- Rush cards will be injected here by JavaScript -->
+            </div>
+    
+            <div class="no-results" id="noResults"> 
+                <div class="no-results-icon">🧐</div>
+                <h3>No Results Found</h3>
+                <p>Try different keywords or clear the search.</p>
+            </div>
+    
+            <div class="empty-state" id="emptyState">
+                <div class="empty-icon">📂</div>
+                <h3>No Rush Events Yet</h3>
+                <p>Click "Create New Rush" to get started.</p>
+            </div>
+        </main>
+    </div>
+
+    <div class="modal" id="rushModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modalTitle">Create New Rush</h2>
+            </div>
+            <form id="rushForm">
+                <div class="form-group">
+                    <label class="form-label" for="rushName">Rush Name</label>
+                    <input type="text" class="form-input" id="rushName" placeholder="e.g., Fall 2025 Recruitment" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="rushDescription">Description</label>
+                    <input type="text" class="form-input" id="rushDescription" placeholder="A brief description of the event">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="createRush">Create Rush</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div class="modal" id="leaderboardModal">
+        <div class="modal-content leaderboard-modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">🏆 Top Rushers</h2>
+                <p class="leaderboard-subtitle" id="leaderboardSubtitle"></p>
+            </div>
+            <div id="leaderboardContent" class="leaderboard-content">
+                <div class="spinner"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeLeaderboard()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Badge Tooltip -->
+    <div class="badge-tooltip" id="badgeTooltip">
+        <span class="badge-tooltip-emoji" id="badgeTooltipEmoji"></span>
+        <div class="badge-tooltip-name" id="badgeTooltipName"></div>
+        <div class="badge-tooltip-description" id="badgeTooltipDescription"></div>
+    </div>
+
+    <script>
+      // Global variables (using var to avoid redeclaration issues in dynamically loaded scripts)
+      var rushEvents = <%- JSON.stringify(events) %>;
+      console.log("rushEvents on rusharchives page:", rushEvents); 
+      var APP_BASE_URL = '<%- baseUrl %>';
+      var filteredEvents = [...rushEvents];
+      var currentEditId = null;
+      var position = '<%- position %>';
+
+      // --- Utility Functions ---
+      // These function definitions are placed here so they are available immediately.
+      function showLoading() {
+          document.getElementById('loadingOverlay').style.display = 'flex';
+          document.getElementById('appContainer').classList.add('hidden');
+      }
+
+      function hideLoading() {
+          document.getElementById('loadingOverlay').style.display = 'none';
+          document.getElementById('appContainer').classList.remove('hidden');
+      }
+
+      function showLeaderboard(rushId) {
+          var modal = document.getElementById('leaderboardModal');
+          var content = document.getElementById('leaderboardContent');
+          var subtitle = document.getElementById('leaderboardSubtitle');
+
+          // Show modal with spinner
+          modal.style.display = 'flex';
+          content.innerHTML = '<div class="spinner" style="margin: 2rem auto;"></div>';
+
+          // Find the rush event name
+          var rush = rushEvents.find(r => r.id === rushId);
+          subtitle.textContent = rush ? rush.name : 'Loading...';
+
+          // Call backend to get leaderboard data
+          fetch('/api/rush/events/' + rushId + '/engagement' + window.location.search)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.error) {
+                content.innerHTML = '<div class="no-data-message">Error loading leaderboard: ' + data.error + '</div>';
+                return;
+              }
+
+              renderLeaderboard(data);
+            })
+            .catch(function(err) {
+              console.error('Error loading leaderboard:', err);
+              content.innerHTML = '<div class="no-data-message">Error loading leaderboard. Please try again.</div>';
+            });
+      }
+
+      function renderLeaderboard(data) {
+          var content = document.getElementById('leaderboardContent');
+
+          if (!data.topRushers || data.topRushers.length === 0) {
+            content.innerHTML = '<div class="no-data-message">No engagement data yet for this rush event.</div>';
+            return;
+          }
+
+          // Build the HTML
+          var html = '';
+
+          // Summary stats
+          html += '<div class="leaderboard-stats">';
+          html += '  <div class="leaderboard-stat">';
+          html += '    <span class="leaderboard-stat-value">' + data.totalParticipants + '</span>';
+          html += '    <span class="leaderboard-stat-label">Brothers Participated</span>';
+          html += '  </div>';
+          html += '  <div class="leaderboard-stat">';
+          html += '    <span class="leaderboard-stat-value">' + data.avgPoints + '</span>';
+          html += '    <span class="leaderboard-stat-label">Avg Points</span>';
+          html += '  </div>';
+          html += '  <div class="leaderboard-stat">';
+          html += '    <span class="leaderboard-stat-value">' + data.topRushers.length + '</span>';
+          html += '    <span class="leaderboard-stat-label">Top Contributors</span>';
+          html += '  </div>';
+          html += '</div>';
+
+          // Leaderboard list
+          html += '<div class="leaderboard-list">';
+
+          data.topRushers.forEach(function(rusher, index) {
+            var rank = index + 1;
+            var rankClass = 'rank-' + rank;
+            var rankEmoji = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+
+            html += '<div class="leaderboard-item ' + (rank <= 3 ? rankClass : '') + '">';
+            html += '  <div class="leaderboard-rank">' + (rankEmoji || rank) + '</div>';
+            html += '  <div class="leaderboard-info">';
+            html += '    <div class="leaderboard-name">' + rusher.name + '</div>';
+            html += '    <div class="leaderboard-details">';
+            html += '      <span>Met: ' + rusher.recruitsMetCount + '</span>';
+            html += '      <span>Likes: ' + rusher.recruitsLikedCount + '</span>';
+            html += '      <span>Comments: ' + rusher.commentsCount + '</span>';
+            if (rusher.bidSuccessBonus > 0) {
+              html += '      <span>Successful Bids: ' + (rusher.bidSuccessBonus / 50) + '</span>';
+            }
+            html += '    </div>';
+
+            // Badges
+            if (rusher.badges && rusher.badges.length > 0) {
+              html += '    <div class="badges-container">';
+              rusher.badges.forEach(function(badge) {
+                html += '      <span class="badge" onclick="showBadgeInfo(\'' + escapeJs(badge.name) + '\', \'' + escapeJs(badge.description) + '\', \'' + badge.emoji + '\', event)" title="Click for details">';
+                html += '        <span class="badge-emoji">' + badge.emoji + '</span>';
+                html += '        <span>' + badge.name + '</span>';
+                html += '      </span>';
+              });
+              html += '    </div>';
+            }
+
+            html += '  </div>';
+            html += '  <div class="leaderboard-points">' + rusher.points + '</div>';
+            html += '</div>';
+          });
+
+          html += '</div>';
+
+          content.innerHTML = html;
+      }
+
+      function closeLeaderboard() {
+          document.getElementById('leaderboardModal').style.display = 'none';
+      }
+
+      // Helper function to escape HTML for security
+      function escapeHtml(text) {
+          var div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+      }
+
+      // Helper function to escape strings for JavaScript
+      function escapeJs(text) {
+          if (!text) return '';
+          return text.replace(/\\/g, '\\\\')
+                     .replace(/'/g, "\\'")
+                     .replace(/"/g, '\\"')
+                     .replace(/\n/g, '\\n')
+                     .replace(/\r/g, '\\r');
+      }
+
+      // Badge info tooltip
+      function showBadgeInfo(name, description, emoji, event) {
+          var tooltip = document.getElementById('badgeTooltip');
+          var tooltipEmoji = document.getElementById('badgeTooltipEmoji');
+          var tooltipName = document.getElementById('badgeTooltipName');
+          var tooltipDescription = document.getElementById('badgeTooltipDescription');
+
+          // Set content
+          tooltipEmoji.textContent = emoji;
+          tooltipName.textContent = name;
+          tooltipDescription.textContent = description;
+
+          // Position tooltip near the badge
+          var rect = event.currentTarget.getBoundingClientRect();
+          tooltip.style.left = rect.left + 'px';
+          tooltip.style.top = (rect.bottom + 10) + 'px';
+
+          // Show tooltip
+          tooltip.classList.add('show');
+
+          // Hide tooltip after 3 seconds or when clicking anywhere
+          setTimeout(function() {
+              tooltip.classList.remove('show');
+          }, 3000);
+      }
+
+      // Hide tooltip when clicking anywhere
+      document.addEventListener('click', function(e) {
+          var tooltip = document.getElementById('badgeTooltip');
+          if (tooltip && !e.target.closest('.badge')) {
+              tooltip.classList.remove('show');
+          }
+      });
+
+      function renderRushCards() {
+          console.log("RENDER CALLED in rusharchives!"); 
+          console.log("filteredEvents length in renderRushCards:", filteredEvents.length); 
+
+          // Hide/show create button based on user position
+          if (!position.includes("Rho")) {
+            var createRushButton = document.getElementById("createRushButton");
+            if (createRushButton) { // Ensure element exists before trying to modify
+              createRushButton.style.display = 'none';
+            }
+          }
+
+          var grid = document.getElementById('rushGrid'); // Using var
+          var emptyState = document.getElementById('emptyState'); // Using var
+          var noResults = document.getElementById('noResults'); // Using var
+          var resultsInfo = document.getElementById('resultsInfo'); // Using var
+
+          if (filteredEvents.length === 0) {
+              grid.style.display = 'none';
+
+              if (rushEvents.length === 0) {
+                  emptyState.style.display = 'block';
+                  noResults.style.display = 'none';
+                  resultsInfo.textContent = '';
+              } else {
+                  emptyState.style.display = 'none';
+                  noResults.style.display = 'block';
+                  resultsInfo.textContent = '';
+              }
+              return;
+          }
+
+          grid.style.display = 'grid';
+          emptyState.style.display = 'none';
+          noResults.style.display = 'none';
+
+          var searchTerm = document.getElementById('searchInput').value.trim(); // Using var
+          if (searchTerm) {
+              resultsInfo.textContent = `Found ${filteredEvents.length} result${filteredEvents.length !== 1 ? 's' : ''} for "${searchTerm}"`;
+              resultsInfo.className = 'search-results-info highlight';
+          } else {
+              resultsInfo.textContent = `Showing ${filteredEvents.length} rush event${filteredEvents.length !== 1 ? 's' : ''}`;
+              resultsInfo.className = 'search-results-info';
+          }
+
+          // Generate HTML for each rush card
+          grid.innerHTML = filteredEvents.map(rush => `
+              <div class="rush-card ${rush.isLocked ? 'locked' : ''}">
+                  <div class="card-header">
+                      <h3 class="card-title">
+                          ${rush.name}
+                          ${rush.isLocked ? '<span class="lock-badge" title="This rush is locked (view-only)">🔒</span>' : ''}
+                      </h3>
+                      <span class="card-date">${new Date(rush.date).toLocaleDateString()}</span>
+                  </div>
+                  <div class="card-stats">
+                      <div class="stat-item">
+                          <span class="stat-label">Total Recruits</span>
+                          <span class="stat-value">${rush.totalRecruits || 0}</span>
+                      </div>
+                      <div class="stat-item">
+                          <span class="stat-label">Bids Given</span>
+                          <span class="stat-value">${rush.bids || 0}</span>
+                      </div>
+                      <div class="stat-item">
+                          <span class="stat-label">Flushes</span>
+                          <span class="stat-value">${rush.flushes || 0}</span>
+                      </div>
+                      <div class="stat-item">
+                          <span class="stat-label">Bid Rate</span>
+                          <span class="stat-value">${rush.yieldRate || 0}%</span>
+                      </div>
+                  </div>
+                  <div class="card-actions">
+                      <a class="btn-small btn-view" href="#" data-page="rushpage" data-id="${rush.id}">View</a>
+                      <button class="btn-small btn-secondary" onclick="showLeaderboard('${rush.id}')">🏆 Top Rushers</button>
+                      ${position.includes("Rho") ?
+                        `<button class="btn-small ${rush.isLocked ? 'btn-unlock' : 'btn-lock'}" onclick="toggleLock('${rush.id}')" title="${rush.isLocked ? 'Unlock this rush' : 'Lock this rush (makes it view-only)'}">
+                            ${rush.isLocked ? '🔓 Unlock' : '🔒 Lock'}
+                        </button>
+                        <button class="btn-small btn-edit" onclick="editRush('${rush.id}')">Edit</button>
+                        <button class="btn-small btn-delete" onclick="deleteRush('${rush.id}')">Delete</button>`
+                        : ``
+                        }
+                  </div>
+              </div>
+          `).join('');
+      }
+
+      function openCreateModal() {
+          if (!position.includes("Rho")) {
+            alert("Only the Rho can create new Rush Events");
+            return;
+          }
+          document.getElementById('modalTitle').textContent = 'Create New Rush';
+          document.getElementById('rushForm').reset();
+          currentEditId = null;
+          document.getElementById('rushModal').style.display = 'block';
+          document.getElementById('createRush').textContent = 'Create New Rush';
+      }
+
+      function editRush(id) {
+          if (!position.includes("Rho")) {
+            alert("Only the Rho can edit Rush Events");
+            return;
+          }
+          var rush = rushEvents.find(r => r.id === id); 
+          if (!rush) return;
+
+          document.getElementById('modalTitle').textContent = 'Edit Rush';
+          document.getElementById('rushName').value = rush.name;
+          document.getElementById('rushDescription').value = rush.description;
+          currentEditId = id;
+          document.getElementById('rushModal').style.display = 'block';
+          document.getElementById('createRush').textContent = 'Confirm edits';
+      }
+
+      function closeModal() {
+          document.getElementById('rushModal').style.display = 'none';
+          //currentEditId = null;
+      }
+
+      // `viewRush` function removed as `home.html`'s `handleNavigation` now manages it.
+
+      function deleteRush(id) {
+        if (!position.includes("Rho")) {
+            alert("Only the Rho can delete Rush Events");
+            return;
+        }
+
+        var rush = rushEvents.find(r => r.id === id);
+        if (!rush) return;
+
+        // Custom "Type to Delete" Prompt
+        var confirmation = prompt(`CRITICAL: This will permanently delete "${rush.name}" and ALL associated recruit data, comments, and photos.\n\nTo confirm, please type "delete" below:`);
+        
+        // If the user didn't type "delete" exactly, abort
+        if (confirmation === null) return; // User clicked cancel
+        
+        if (confirmation.toLowerCase() !== 'delete') {
+          alert('Incorrect confirmation. Deletion cancelled.');
+          return;
+        }
+
+        showLoading();
+        fetch('/api/rush/events/' + id + window.location.search, { method: 'DELETE' })
+          .then(function(r) { return r.json(); })
+          .then(function(result) {
+            var wasDeleted = result.success;
+            if (wasDeleted) {
+              rushEvents = rushEvents.filter(r => r.id !== id);
+              performSearch();
+              hideLoading();
+              alert('Rush event permanently deleted.');
+            } else {
+              alert('Could not find that event to delete.');
+              hideLoading();
+            }
+          })
+          .catch(function(err) {
+            console.error(err);
+            alert('Error deleting event: ' + err.message);
+            hideLoading();
+          });
+      }
+
+      function toggleLock(id) {
+        if (!position.includes("Rho")) {
+            alert("Only the Rho can lock/unlock Rush Events");
+            return;
+        }
+
+        var rush = rushEvents.find(r => r.id === id);
+        if (!rush) return;
+
+        var action = rush.isLocked ? 'unlock' : 'lock';
+        var confirmMsg = rush.isLocked
+          ? 'Unlock this rush event? This will allow editing again.'
+          : 'Lock this rush event? This will make it view-only to preserve historical records.';
+
+        if (!confirm(confirmMsg)) {
+          return;
+        }
+
+        showLoading();
+        fetch('/api/rush/events/' + id + '/lock' + window.location.search, { method: 'POST' })
+          .then(function(r) { return r.json(); })
+          .then(function(result) {
+            if (result.success) {
+              // Update the rush event in the local array
+              var idx = rushEvents.findIndex(r => r.id === id);
+              if (idx > -1) {
+                rushEvents[idx].isLocked = result.isLocked;
+              }
+              performSearch();
+              hideLoading();
+              alert(result.message);
+            } else {
+              alert('Error toggling lock: ' + (result.message || 'Unknown error'));
+              hideLoading();
+            }
+          })
+          .catch(function(err) {
+            console.error(err);
+            alert('Error toggling lock: ' + err.message);
+            hideLoading();
+          });
+      }
+
+      function performSearch() {
+          var searchTerm = document.getElementById('searchInput').value.toLowerCase().trim(); 
+
+          if (!searchTerm) {
+              filteredEvents = [...rushEvents];
+          } else {
+              filteredEvents = rushEvents.filter(rush => {
+                  return rush.name.toLowerCase().includes(searchTerm) ||
+                         rush.description.toLowerCase().includes(searchTerm) ||
+                         rush.date.includes(searchTerm);
+              });
+          }
+
+          renderRushCards();
+      }
+
+      function bulkAction(action) {
+          switch(action) {
+              case 'export':
+                  alert('Exporting all rush data...\n\nThis would generate a downloadable report.');
+                  break;
+          }
+      }
+
+
+      // --- Form submission for creating/editing rush events ---
+ //rushForm = document.getElementById('rushForm');
+
+// Check if a listener has already been attached
+if (!rushForm.dataset.listenerAttached) {
+  rushForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = document.getElementById('rushName').value;
+      const desc = document.getElementById('rushDescription').value;
+      const isEdit = Boolean(currentEditId);
+      function formatDateMMDDYYYY(date) {
+          // Pad numbers to two digits
+          function pad(n) { return n < 10 ? '0' + n : n; }
+          var mm = pad(date.getMonth() + 1); // Months are 0-based!
+          var dd = pad(date.getDate());
+          var yyyy = date.getFullYear();
+          return mm + '/' + dd + '/' + yyyy;
+      }
+      const payload = {
+        name: name,
+        date: formatDateMMDDYYYY(new Date()),
+        description: desc,
+        id: isEdit ? currentEditId : crypto.randomUUID()
+      };
+
+      showLoading();
+      // hide the UI but don't clear currentEditId
+      closeModal();
+
+      // pick the right server function
+      fetch('/api/rush/events' + window.location.search, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(e) {
+          if (isEdit) {
+            // replace the old event in-place
+            const idx = rushEvents.findIndex(r => r.id === payload.id);
+            if (idx > -1) {
+              rushEvents[idx] = { ...rushEvents[idx], ...payload };
+            }
+          } else {
+            rushEvents.push(payload);
+          }
+          // reset for next time
+          currentEditId = null;
+          performSearch();
+          hideLoading();
+        })
+        .catch(function(err) {
+          console.error(err);
+          alert("Error saving event: " + err.message);
+          hideLoading();
+          // Optionally re-open the modal on failure
+          // document.getElementById('rushModal').style.display = 'block';
+        });
+    });
+
+    // Set a flag to prevent re-attaching the listener
+    rushForm.dataset.listenerAttached = 'true';
+}
+
+
+      // Close modal when clicking outside
+      document.getElementById('rushModal').addEventListener('click', function(e) {
+          if (e.target === this) {
+              closeModal();
+          }
+      });
+
+      // Close leaderboard modal when clicking outside
+      document.getElementById('leaderboardModal').addEventListener('click', function(e) {
+          if (e.target === this) {
+              closeLeaderboard();
+          }
+      });
+
+      // Create floating particles
+      function createParticles() {
+          var container = document.getElementById('particles'); 
+          if (container) {
+              for (var i = 0; i < 20; i++) {
+                  var particle = document.createElement('div');
+                  particle.className = 'particle';
+                  particle.style.left = Math.random() * 100 + '%';
+                  particle.style.top = Math.random() * 100 + '%';
+                  particle.style.animationDelay = Math.random() * 8 + 's';
+                  particle.style.animationDuration = (Math.random() * 4 + 6) + 's';
+                  container.appendChild(particle);
+              }
+          }
+      }
+
+      // --- APP INITIALIZATION FOR THIS DYNAMICALLY LOADED PAGE ---
+      // These calls will execute as soon as the script is loaded and parsed,
+      // as this page is dynamically injected, not a full page load.
+      createParticles();
+      hideLoading(); // This should hide the rusharchives-specific loading overlay
+
+      renderRushCards(); // KEY CALL: Renders the cards immediately on script execution.
+
+      // --- Search box wiring ---
+      // These listeners also need to be attached immediately.
+      var searchInput = document.getElementById('searchInput');
+      var searchTimeout;
+
+      if (searchInput) {
+          searchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(performSearch, 300);
+          });
+
+          searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+              searchInput.value = '';
+              performSearch();
+              searchInput.blur();
+            } 
+          });
+      }
+
+      // Back to Home button logic: use data-page for SPA routing
+      var homeButton = document.getElementById('home_button');
+      if (homeButton) {
+          homeButton.addEventListener('click', function() {
+              showLoading(); // Show this page's loader while navigating back to home
+              // The home.html's handleNavigation will intercept the data-page attribute
+              // and route to the 'home' view, which will then hide its own loader.
+          });
+      }
+    </script>
+</body>
+</html>

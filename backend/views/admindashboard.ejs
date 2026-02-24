@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chi Admin Dashboard</title>
+  <style>
+    :root {
+      --admin-red: #dc143c;
+      --admin-dark-red: #8b0000;
+      --gold: #FFD700;
+      --bg-dark: #0a0a0a;
+      --bg-secondary: #1a1a1a;
+      --text-primary: #ffffff;
+      --text-secondary: #b8b8b8;
+      --success: #4CAF50;
+      --error: #f44336;
+      --border-color: rgba(220, 20, 60, 0.3);
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-secondary) 100%);
+      color: var(--text-primary);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+
+    .admin-header {
+      text-align: center;
+      margin-bottom: 2rem;
+      padding: 2rem;
+      background: linear-gradient(135deg, rgba(220, 20, 60, 0.1), rgba(139, 0, 0, 0.1));
+      border-radius: 20px;
+      border: 2px solid var(--admin-red);
+    }
+
+    .admin-header h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(135deg, var(--admin-red), var(--gold));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    .admin-header p {
+      color: var(--text-secondary);
+      font-size: 1rem;
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 20px;
+      margin-bottom: 2rem;
+    }
+
+    .admin-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    .admin-card:hover {
+      border-color: var(--admin-red);
+      box-shadow: 0 8px 32px rgba(220, 20, 60, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .admin-card h3 {
+      color: var(--admin-red);
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .admin-btn {
+      background: linear-gradient(135deg, var(--admin-red), var(--admin-dark-red));
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      width: 100%;
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
+
+    .admin-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(220, 20, 60, 0.4);
+    }
+
+    .admin-btn:active {
+      transform: translateY(0);
+    }
+
+    .stat-box {
+      background: rgba(220, 20, 60, 0.1);
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .stat-box .stat-value {
+      font-size: 2rem;
+      font-weight: bold;
+      color: var(--admin-red);
+    }
+
+    .stat-box .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      margin-top: 5px;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-content {
+      background: var(--bg-secondary);
+      border: 2px solid var(--admin-red);
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 800px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal-content h2 {
+      color: var(--admin-red);
+      margin-bottom: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      background: rgba(220, 20, 60, 0.1);
+      color: var(--admin-red);
+      font-weight: 600;
+    }
+
+    td {
+      color: var(--text-primary);
+    }
+
+    tr:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .badge-rho {
+      background: linear-gradient(135deg, var(--gold), #FFA500);
+      color: #000;
+    }
+
+    .badge-chi {
+      background: linear-gradient(135deg, var(--admin-red), var(--admin-dark-red));
+      color: #fff;
+    }
+
+    .badge-active {
+      background: rgba(76, 175, 80, 0.3);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .badge-inactive {
+      background: rgba(244, 67, 54, 0.3);
+      color: var(--error);
+      border: 1px solid var(--error);
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-size: 1rem;
+    }
+
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      outline: none;
+      border-color: var(--admin-red);
+    }
+
+    .form-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .btn-secondary {
+      background: transparent;
+      border: 2px solid var(--text-secondary);
+      color: var(--text-secondary);
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--text-primary);
+      color: var(--text-primary);
+    }
+
+    .warning-box {
+      background: rgba(255, 193, 7, 0.1);
+      border: 2px solid #FFC107;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 20px;
+      color: #FFC107;
+    }
+
+    @media (max-width: 768px) {
+      .admin-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="admin-header">
+  <h1>🔑 Chi Admin Dashboard</h1>
+  <p>System-wide management and oversight</p>
+</div>
+
+<div class="admin-grid">
+  <!-- User Management -->
+  <div class="admin-card">
+    <h3>👥 User Management</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+      Manage brotherhood roster, positions, and permissions
+    </p>
+    <button class="admin-btn" onclick="viewAllUsers()">📋 View All Brothers</button>
+    <button class="admin-btn" onclick="addNewBrother()">➕ Add New Brother</button>
+    <button class="admin-btn" onclick="managePositions()">🎖️ Manage Positions</button>
+    <button class="admin-btn" onclick="deactivateGraduates()">🎓 Deactivate Graduates</button>
+  </div>
+
+  <!-- Content Management -->
+  <div class="admin-card">
+    <h3>📝 Content Management</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+      Manage all content across the portal
+    </p>
+    <button class="admin-btn" onclick="manageCustomButtons()">🔘 Manage Custom Buttons</button>
+    <button class="admin-btn" onclick="manageRushEvents()">📅 Manage Rush Events</button>
+    <button class="admin-btn" onclick="globalAnnouncement()">📢 Send Announcement</button>
+    <button class="admin-btn" onclick="manageCalendar()">📆 Calendar Settings</button>
+  </div>
+
+  <!-- System Analytics -->
+  <div class="admin-card">
+    <h3>📊 Analytics & Reports</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+      View system-wide usage and performance metrics
+    </p>
+    <button class="admin-btn" onclick="viewDashboardStats()">📈 Dashboard Overview</button>
+    <button class="admin-btn" onclick="viewUserActivity()">👁️ User Activity Logs</button>
+    <button class="admin-btn" onclick="viewRushAnalytics()">🎯 Rush Performance</button>
+    <button class="admin-btn" onclick="exportAllData()">💾 Export All Data</button>
+  </div>
+
+  <!-- Security & Audit -->
+  <div class="admin-card">
+    <h3>🔒 Security & Audit</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+      Monitor security and system actions
+    </p>
+    <button class="admin-btn" onclick="viewAuditLog()">📋 Full Audit Log</button>
+    <button class="admin-btn" onclick="viewActiveSessions()">🔓 Active Sessions</button>
+    <button class="admin-btn" onclick="securitySettings()">⚙️ Security Settings</button>
+    <button class="admin-btn" onclick="forceLogoutAll()">🚨 Force Logout All</button>
+  </div>
+
+  <!-- System Settings -->
+  <div class="admin-card">
+    <h3>⚙️ System Settings</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+      Configure app-wide settings and integrations
+    </p>
+    <button class="admin-btn" onclick="gcsSettings()">☁️ Cloud Storage Config</button>
+    <button class="admin-btn" onclick="sseSettings()">🔄 Real-time Sync Config</button>
+    <button class="admin-btn" onclick="emailSettings()">📧 Email Configuration</button>
+    <button class="admin-btn" onclick="backupSettings()">💾 Backup & Restore</button>
+  </div>
+
+  <!-- Dangerous Operations -->
+  <div class="admin-card" style="border-color: var(--error);">
+    <h3 style="color: var(--error);">⚠️ Dangerous Operations</h3>
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
+      Use with extreme caution - irreversible actions
+    </p>
+    <button class="admin-btn" style="background: linear-gradient(135deg, var(--error), #c62828);" onclick="resetAllPasswords()">🔑 Reset All Passwords</button>
+    <button class="admin-btn" style="background: linear-gradient(135deg, var(--error), #c62828);" onclick="clearAllCache()">🗑️ Clear All Cache</button>
+    <button class="admin-btn" style="background: linear-gradient(135deg, var(--error), #c62828);" onclick="factoryReset()">💣 Factory Reset</button>
+  </div>
+</div>
+
+<!-- User Management Modal -->
+<div id="userManagementModal" class="modal">
+  <div class="modal-content">
+    <h2>👥 Brotherhood Roster</h2>
+    <div id="userTableContainer"></div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal('userManagementModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Brother Modal -->
+<div id="addBrotherModal" class="modal">
+  <div class="modal-content">
+    <h2>➕ Add New Brother</h2>
+    <form id="addBrotherForm" onsubmit="submitNewBrother(event)">
+      <div class="form-group">
+        <label>Full Name *</label>
+        <input type="text" id="brotherName" required>
+      </div>
+      <div class="form-group">
+        <label>Email *</label>
+        <input type="email" id="brotherEmail" required>
+      </div>
+      <div class="form-group">
+        <label>Phone</label>
+        <input type="tel" id="brotherPhone">
+      </div>
+      <div class="form-group">
+        <label>Position *</label>
+        <select id="brotherPosition" required>
+          <option value="">Select Position</option>
+          <option value="Chi">Chi (President)</option>
+          <option value="Rho">Rho (VP)</option>
+          <option value="Tau">Tau (Treasurer)</option>
+          <option value="Sigma">Sigma (Secretary)</option>
+          <option value="Pledge">Pledge</option>
+          <option value="Brother">Brother</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Status</label>
+        <select id="brotherStatus">
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="alumni">Alumni</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" onclick="closeModal('addBrotherModal')">Cancel</button>
+        <button type="submit" class="admin-btn">Add Brother</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Stats Dashboard Modal -->
+<div id="statsDashboardModal" class="modal">
+  <div class="modal-content" style="max-width: 1000px;">
+    <h2>📊 System Analytics Dashboard</h2>
+    <div id="statsContainer"></div>
+    <div class="form-actions">
+      <button class="btn-secondary" onclick="closeModal('statsDashboardModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Audit Log Modal -->
+<div id="auditLogModal" class="modal">
+  <div class="modal-content" style="max-width: 1200px;">
+    <h2>📋 System Audit Log</h2>
+    <div class="warning-box">
+      <strong>⚠️ Privacy Notice:</strong> This log contains sensitive actions. Use responsibly.
+    </div>
+    <div id="auditLogContainer"></div>
+    <div class="form-actions">
+      <button class="admin-btn" onclick="exportAuditLog()">📥 Export Log</button>
+      <button class="btn-secondary" onclick="closeModal('auditLogModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Global variables
+var currentUser = '<%- name %>';
+var allBrothers = [];
+
+// Modal management
+function closeModal(modalId) {
+  document.getElementById(modalId).style.display = 'none';
+}
+
+function showModal(modalId) {
+  document.getElementById(modalId).style.display = 'flex';
+}
+
+// ==================== USER MANAGEMENT ====================
+
+function viewAllUsers() {
+  showMessage('Loading brothers...', 'info');
+  fetch('/api/admin/brothers' + window.location.search)
+    .then(function(r) { return r.json(); })
+    .then(function(brothers) {
+      allBrothers = brothers;
+      renderUserTable(brothers);
+      showModal('userManagementModal');
+    })
+    .catch(onError);
+}
+
+function renderUserTable(brothers) {
+  const container = document.getElementById('userTableContainer');
+
+  const tableHtml = `
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Position</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${brothers.map(bro => `
+          <tr>
+            <td>${bro.name}</td>
+            <td>${bro.email}</td>
+            <td>
+              ${bro.position.includes('Chi') ? '<span class="badge badge-chi">Chi</span>' : ''}
+              ${bro.position.includes('Rho') ? '<span class="badge badge-rho">Rho</span>' : ''}
+              ${!bro.position.includes('Chi') && !bro.position.includes('Rho') ? bro.position : ''}
+            </td>
+            <td>
+              <span class="badge ${bro.status === 'active' ? 'badge-active' : 'badge-inactive'}">
+                ${bro.status || 'active'}
+              </span>
+            </td>
+            <td>
+              <button onclick="editBrother('${bro.email}')" style="padding: 4px 12px; background: var(--admin-red); color: white; border: none; border-radius: 4px; cursor: pointer;">Edit</button>
+              <button onclick="deleteBrother('${bro.email}')" style="padding: 4px 12px; background: var(--error); color: white; border: none; border-radius: 4px; cursor: pointer;">Delete</button>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+
+  container.innerHTML = tableHtml;
+}
+
+function addNewBrother() {
+  showModal('addBrotherModal');
+}
+
+function submitNewBrother(e) {
+  e.preventDefault();
+
+  const brotherData = {
+    name: document.getElementById('brotherName').value,
+    email: document.getElementById('brotherEmail').value,
+    phone: document.getElementById('brotherPhone').value,
+    position: document.getElementById('brotherPosition').value,
+    status: document.getElementById('brotherStatus').value
+  };
+
+  showMessage('Adding brother...', 'info');
+
+  fetch('/api/admin/brothers' + window.location.search, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: brotherData.email,
+      name: brotherData.name,
+      position: brotherData.position
+    })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showMessage('✅ Brother added successfully!', 'success');
+        closeModal('addBrotherModal');
+        document.getElementById('addBrotherForm').reset();
+      } else {
+        showMessage('❌ Error: ' + result.message, 'error');
+      }
+    })
+    .catch(onError);
+}
+
+function editBrother(email) {
+  showMessage('Edit feature coming soon...', 'info');
+  // TODO: Implement edit modal
+}
+
+function deleteBrother(email) {
+  if (!confirm(`Delete brother with email ${email}? This action cannot be undone.`)) return;
+
+  fetch('/api/admin/brothers/' + encodeURIComponent(email) + window.location.search, {
+    method: 'DELETE'
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      if (result.success) {
+        showMessage('✅ Brother deleted', 'success');
+        viewAllUsers(); // Refresh list
+      } else {
+        showMessage('❌ Error: ' + result.message, 'error');
+      }
+    })
+    .catch(onError);
+}
+
+function managePositions() {
+  showMessage('Position management feature coming soon...', 'info');
+}
+
+function deactivateGraduates() {
+  if (!confirm('Mark all alumni as inactive? This will prevent them from logging in.')) return;
+
+  fetch('/api/admin/deactivate-alumni' + window.location.search, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      showMessage(`✅ Deactivated ${result.count} alumni`, 'success');
+    })
+    .catch(onError);
+}
+
+// ==================== CONTENT MANAGEMENT ====================
+
+function manageCustomButtons() {
+  // Navigate to button manager
+  window.top.postMessage({type: 'NAVIGATE', page: 'buttonmanager'}, '*');
+}
+
+function manageRushEvents() {
+  // Navigate to rush archives
+  window.top.postMessage({type: 'NAVIGATE', page: 'rusharchives'}, '*');
+}
+
+function globalAnnouncement() {
+  const message = prompt('Enter announcement message:');
+  if (!message) return;
+
+  fetch('/api/admin/announcement' + window.location.search, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: message })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      showMessage('✅ Announcement sent!', 'success');
+    })
+    .catch(onError);
+}
+
+function manageCalendar() {
+  showMessage('Calendar management feature coming soon...', 'info');
+}
+
+// ==================== ANALYTICS ====================
+
+function viewDashboardStats() {
+  fetch('/api/admin/stats' + window.location.search)
+    .then(function(r) { return r.json(); })
+    .then(function(stats) {
+      renderStatsWidget(stats);
+      showModal('statsDashboardModal');
+    })
+    .catch(onError);
+}
+
+function renderStatsWidget(stats) {
+  const container = document.getElementById('statsContainer');
+
+  container.innerHTML = `
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+      <div class="stat-box">
+        <div class="stat-value">${stats.totalBrothers || 0}</div>
+        <div class="stat-label">Total Brothers</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${stats.activeBrothers || 0}</div>
+        <div class="stat-label">Active Brothers</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${stats.totalRushEvents || 0}</div>
+        <div class="stat-label">Rush Events</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-value">${stats.customButtons || 0}</div>
+        <div class="stat-label">Custom Buttons</div>
+      </div>
+    </div>
+
+    <h3 style="color: var(--admin-red); margin-top: 30px;">Recent Activity</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Action</th>
+          <th>User</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${(stats.recentActivity || []).map(activity => `
+          <tr>
+            <td>${activity.action}</td>
+            <td>${activity.user}</td>
+            <td>${new Date(activity.timestamp).toLocaleString()}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function viewUserActivity() {
+  showMessage('User activity tracking feature coming soon...', 'info');
+}
+
+function viewRushAnalytics() {
+  showMessage('Rush analytics feature coming soon...', 'info');
+}
+
+function exportAllData() {
+  if (!confirm('Export all system data? This may take a moment.')) return;
+
+  fetch('/api/admin/export-brothers' + window.location.search)
+    .then(function(r) { return r.text(); })
+    .then(function(csvData) {
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `phikaps_full_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage('✅ Data exported!', 'success');
+    })
+    .catch(onError);
+}
+
+// ==================== SECURITY & AUDIT ====================
+
+function viewAuditLog() {
+  fetch('/api/admin/audit-log' + window.location.search)
+    .then(function(r) { return r.json(); })
+    .then(function(logs) {
+      renderAuditLog(logs);
+      showModal('auditLogModal');
+    })
+    .catch(onError);
+}
+
+function renderAuditLog(logs) {
+  const container = document.getElementById('auditLogContainer');
+
+  container.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>User</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${logs.map(log => `
+          <tr>
+            <td>${new Date(log.timestamp).toLocaleString()}</td>
+            <td>${log.user}</td>
+            <td><code>${log.action}</code></td>
+            <td>${log.target || '-'}</td>
+            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${log.details || '-'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function exportAuditLog() {
+  fetch('/api/admin/export-audit-log' + window.location.search)
+    .then(function(r) { return r.text(); })
+    .then(function(csvData) {
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `audit_log_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showMessage('✅ Audit log exported!', 'success');
+    })
+    .catch(onError);
+}
+
+function viewActiveSessions() {
+  showMessage('Active sessions feature coming soon...', 'info');
+}
+
+function securitySettings() {
+  showMessage('Security settings feature coming soon...', 'info');
+}
+
+function forceLogoutAll() {
+  if (!confirm('Force logout ALL users? They will need to re-authenticate.')) return;
+
+  fetch('/api/admin/force-logout' + window.location.search, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      showMessage('✅ All sessions terminated', 'success');
+    })
+    .catch(onError);
+}
+
+// ==================== SYSTEM SETTINGS ====================
+
+function gcsSettings() {
+  showMessage('Cloud storage config feature coming soon...', 'info');
+}
+
+function sseSettings() {
+  showMessage('Real-time sync config feature coming soon...', 'info');
+}
+
+function emailSettings() {
+  showMessage('Email configuration feature coming soon...', 'info');
+}
+
+function backupSettings() {
+  showMessage('Backup & restore feature coming soon...', 'info');
+}
+
+// ==================== DANGEROUS OPERATIONS ====================
+
+function resetAllPasswords() {
+  if (!confirm('⚠️ WARNING: Reset ALL passwords? Every brother will be locked out until they reset via email.')) return;
+  if (!confirm('Are you ABSOLUTELY sure? This cannot be undone!')) return;
+
+  showMessage('Resetting passwords...', 'info');
+
+  fetch('/api/admin/reset-passwords' + window.location.search, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      showMessage(`✅ ${result.count} passwords reset`, 'success');
+    })
+    .catch(onError);
+}
+
+function clearAllCache() {
+  if (!confirm('Clear all cached data? This may temporarily slow down the app.')) return;
+
+  fetch('/api/admin/clear-cache' + window.location.search, { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function() {
+      showMessage('✅ All cache cleared', 'success');
+    })
+    .catch(onError);
+}
+
+function factoryReset() {
+  alert('⛔ FACTORY RESET DISABLED\n\nThis action would delete ALL data permanently.\n\nContact the developer if you truly need this.');
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function showMessage(message, type) {
+  const color = type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--error)' : 'var(--gold)';
+
+  const msgDiv = document.createElement('div');
+  msgDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: ${color};
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    z-index: 10000;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    animation: slideIn 0.3s ease;
+  `;
+  msgDiv.textContent = message;
+  document.body.appendChild(msgDiv);
+
+  setTimeout(() => {
+    msgDiv.style.animation = 'slideOut 0.3s ease';
+    setTimeout(() => msgDiv.remove(), 300);
+  }, 3000);
+}
+
+function onError(error) {
+  showMessage('❌ Error: ' + (error.message || error), 'error');
+  console.error('Error:', error);
+}
+
+// Add animations
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes slideIn {
+    from { transform: translateX(400px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOut {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(400px); opacity: 0; }
+  }
+`;
+document.head.appendChild(style);
+
+console.log('Chi Admin Dashboard loaded');
+</script>
+
+</body>
+</html>

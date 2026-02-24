@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PKS Records</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: #b8b8b8;
+            font-size: 1.1rem;
+        }
+
+        .records-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .menu-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item:hover {
+            border-color: rgba(255, 215, 0, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.2);
+        }
+
+        .menu-button {
+            width: 100%;
+            padding: 1.5rem;
+            background: transparent;
+            border: none;
+            color: #FFD700;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.3s ease;
+        }
+
+        .menu-button:hover {
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .menu-button .icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        .menu-button .title {
+            flex: 1;
+            text-align: left;
+        }
+
+        .menu-button .arrow {
+            font-size: 1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .menu-button.active .arrow {
+            transform: rotate(180deg);
+        }
+
+        .submenu {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .submenu.open {
+            max-height: 1000px;
+        }
+
+        .submenu-item {
+            display: block;
+            padding: 1rem 1.5rem;
+            color: #ffffff;
+            text-decoration: none;
+            border-top: 1px solid rgba(255, 215, 0, 0.1);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .submenu-item:hover {
+            background: rgba(255, 215, 0, 0.1);
+            padding-left: 2rem;
+        }
+
+        .submenu-item .emoji {
+            font-size: 1.2rem;
+        }
+
+        /* Direct link style (no submenu) */
+        .menu-item.direct-link .menu-button {
+            cursor: default;
+        }
+
+        .menu-item.direct-link a.menu-link {
+            display: block;
+            width: 100%;
+            padding: 1.5rem;
+            color: #FFD700;
+            text-decoration: none;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .menu-item.direct-link a.menu-link:hover {
+            background: rgba(255, 215, 0, 0.05);
+        }
+
+        .menu-item.direct-link a.menu-link .icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        /* Lineage Trees Submenu */
+        .lineage-submenu {
+            padding: 1.5rem;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .lineage-submenu h3 {
+            color: #FFD700;
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+
+        .lineage-links {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .lineage-links a {
+            padding: 0.75rem 1rem;
+            background: rgba(255, 215, 0, 0.05);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 8px;
+            color: #ffffff;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .lineage-links a:hover {
+            background: rgba(255, 215, 0, 0.15);
+            border-color: rgba(255, 215, 0, 0.4);
+            transform: translateX(5px);
+        }
+
+        /* Lineage Tree Modal */
+        .lineage-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            padding: 1rem;
+        }
+
+        .lineage-modal.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .lineage-modal-content {
+            width: 100%;
+            max-width: 1400px;
+            height: 90vh;
+            background: #1a1a1a;
+            border-radius: 15px;
+            border: 2px solid #FFD700;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .lineage-modal-header {
+            padding: 1.5rem;
+            background: rgba(255, 215, 0, 0.1);
+            border-bottom: 2px solid rgba(255, 215, 0, 0.3);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .lineage-modal-header h2 {
+            color: #FFD700;
+            font-size: 1.5rem;
+            margin: 0;
+        }
+
+        .close-modal {
+            background: transparent;
+            border: 2px solid #FFD700;
+            color: #FFD700;
+            padding: 0.5rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .close-modal:hover {
+            background: #FFD700;
+            color: #000;
+        }
+
+        .lineage-iframe-container {
+            flex: 1;
+            padding: 1rem;
+            overflow: hidden;
+        }
+
+        .lineage-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 8px;
+            background: white;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .menu-button {
+                font-size: 1rem;
+                padding: 1.25rem;
+            }
+
+            .submenu-item {
+                padding: 0.875rem 1.25rem;
+            }
+
+            .lineage-modal {
+                padding: 0.5rem;
+            }
+
+            .lineage-modal-content {
+                height: 95vh;
+            }
+
+            .lineage-modal-header {
+                padding: 1rem;
+            }
+
+            .lineage-modal-header h2 {
+                font-size: 1.2rem;
+            }
+
+            .close-modal {
+                padding: 0.4rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏛️ PKS Records</h1>
+            <p>Historical Records & Lineages</p>
+        </div>
+
+        <div class="records-menu">
+            <!-- FFWBR Times -->
+            <div class="menu-item direct-link">
+                <a href="https://docs.google.com/spreadsheets/d/1u1C5AY2SyCHKI1qoXskzPG9XG6GJzBUPWsJVScPwuP4/edit" target="_blank" rel="noopener noreferrer" class="menu-link">
+                    <span class="icon">⏱️</span>
+                    <span class="title">FFWBR Times</span>
+                </a>
+            </div>
+
+            <!-- Pledge Names -->
+            <div class="menu-item direct-link">
+                <a href="https://docs.google.com/spreadsheets/d/1iosm_zZbSv7iYvBhqD07oCySj-cI_DgaZOUXVUZqL40/edit" target="_blank" rel="noopener noreferrer" class="menu-link">
+                    <span class="icon">📝</span>
+                    <span class="title">Pledge Names</span>
+                </a>
+            </div>
+
+            <!-- Active Lineages -->
+            <div class="menu-item direct-link">
+                <a href="https://docs.google.com/spreadsheets/d/16eQA31RDQusXxrWx7klQH6O_CYLKlAafRpZ5xOXL_aI/edit?gid=691249954#gid=691249954" target="_blank" rel="noopener noreferrer" class="menu-link">
+                    <span class="icon">👥</span>
+                    <span class="title">Active Lineages</span>
+                </a>
+            </div>
+
+            <!-- Bird Names -->
+            <div class="menu-item direct-link">
+                <a href="https://docs.google.com/spreadsheets/d/1iEmEvgJayUPv1F3Q570DQCrxAe2wZv-9zwdelMFKclg/edit?gid=0#gid=0" target="_blank" rel="noopener noreferrer" class="menu-link">
+                    <span class="icon">🦅</span>
+                    <span class="title">Bird Names</span>
+                </a>
+            </div>
+
+            <!-- Lineage Trees (with submenu) -->
+            <div class="menu-item">
+                <button class="menu-button" onclick="toggleSubmenu(this)">
+                    <span class="icon">🌳</span>
+                    <span class="title">Lineage Trees</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="submenu">
+                    <div class="lineage-submenu">
+                        <h3>Select a Lineage:</h3>
+                        <div class="lineage-links">
+                            <a href="#" onclick="showLineage('rickyd'); return false;">
+                                <span>🦅</span>
+                                <span>Ricky D Lineage</span>
+                            </a>
+                            <a href="#" onclick="showLineage('westcott'); return false;">
+                                <span>🏛️</span>
+                                <span>Westcott Lineage</span>
+                            </a>
+                            <a href="#" onclick="showLineage('noname'); return false;">
+                                <span>❓</span>
+                                <span>No Name Lineage</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lineage Tree Modal -->
+    <div class="lineage-modal" id="lineageModal">
+        <div class="lineage-modal-content">
+            <div class="lineage-modal-header">
+                <h2 id="lineageTitle">Lineage Tree</h2>
+                <button class="close-modal" onclick="closeLineageModal()">✕ Close</button>
+            </div>
+            <div class="lineage-iframe-container">
+                <iframe id="lineageIframe" class="lineage-iframe" src="" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ===== PASTE YOUR LINEAGE TREE LINKS HERE =====
+        const lineageLinks = {
+            'rickyd': 'https://www.familyecho.com/?c=xhxey2zirbid82ni&f=402441897246787377',      // Replace with actual link
+            'westcott': 'https://www.familyecho.com/?c=mojuzetnd1ufhfej&f=919923507391968640',   // Replace with actual link
+            'noname': 'https://www.familyecho.com/?c=jy6em3rkh1zt7g0w&f=481486983578110078'       // Replace with actual link
+        };
+        // ==============================================
+
+        const lineageTitles = {
+            'rickyd': 'Ricky D Lineage Tree',
+            'westcott': 'Westcott Lineage Tree',
+            'noname': 'No Name Lineage Tree'
+        };
+
+        function toggleSubmenu(button) {
+            const submenu = button.nextElementSibling;
+            const isOpen = submenu.classList.contains('open');
+
+            // Close all other submenus
+            document.querySelectorAll('.submenu').forEach(sm => {
+                sm.classList.remove('open');
+            });
+            document.querySelectorAll('.menu-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Toggle current submenu
+            if (!isOpen) {
+                submenu.classList.add('open');
+                button.classList.add('active');
+            }
+        }
+
+        function showLineage(lineage) {
+            const modal = document.getElementById('lineageModal');
+            const iframe = document.getElementById('lineageIframe');
+            const title = document.getElementById('lineageTitle');
+
+            // Set the title
+            title.textContent = lineageTitles[lineage] || 'Lineage Tree';
+
+            // Set the iframe source
+            const link = lineageLinks[lineage];
+            if (link && link !== 'PASTE_RICKY_D_LINK_HERE' && link !== 'PASTE_WESTCOTT_LINK_HERE' && link !== 'PASTE_NO_NAME_LINK_HERE') {
+                iframe.src = link;
+                modal.classList.add('active');
+            } else {
+                alert('Please update the lineage link in the HTML file first!\n\nFind the "lineageLinks" object in the script and replace:\n' +
+                      `lineageLinks['${lineage}'] with your actual link.`);
+            }
+        }
+
+        function closeLineageModal() {
+            const modal = document.getElementById('lineageModal');
+            const iframe = document.getElementById('lineageIframe');
+
+            modal.classList.remove('active');
+
+            // Clear iframe source to stop loading
+            setTimeout(() => {
+                iframe.src = '';
+            }, 300);
+        }
+
+        // Close modal when clicking outside the content
+        document.getElementById('lineageModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeLineageModal();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLineageModal();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,11 +1,18 @@
 services:
   - type: web
-    name: sse-server
-    env: node
+    name: pks-internal
+    runtime: node
     plan: free
     buildCommand: cd backend && npm install
     startCommand: cd backend && node server.js
     envVars:
-      - key: PORT
-        value: 10000  # or leave blank; Render will assign a port via $PORT env
-        
+      - key: NODE_ENV
+        value: production
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: SPREADSHEET_ID
+        value: 1VbBlG81sdXFI3zyxZp-g_GQ1RwVH7ZHeKS6YIg6qZzg
+      - key: RUSH_SPREADSHEET_ID
+        value: 1vDvwUS9Feu4iQKnoFuz2_tj369_T-mreGS6DVnkPLFk
+      - key: GOOGLE_CLIENT_ID
+        value: 598065229000-t98hc486hi7aek8km359vho06i299828.apps.googleusercontent.com
