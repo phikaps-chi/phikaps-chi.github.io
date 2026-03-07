@@ -1,4 +1,8 @@
 <script>
+    if (typeof rushApiUrl === 'undefined') {
+      var _sid = '<%- sessionId %>' || (typeof SESSION_ID !== 'undefined' ? SESSION_ID : new URLSearchParams(window.location.search).get('session_id') || '');
+      function rushApiUrl(path) { return path + '?session_id=' + encodeURIComponent(_sid); }
+    }
     // Unified State Manager - combines debouncing with state management
     window.stateManager = {
       debounceTimers: new Map(),
@@ -190,7 +194,7 @@
       
       // Fetch all brothers from backend for the dropdown
       try {
-        const res = await fetch('/api/rush/brothers' + window.location.search);
+        const res = await fetch(rushApiUrl('/api/rush/brothers'));
         if (!res.ok) throw new Error('Failed to load brothers');
         window.stateManager.localState.allBrothers = await res.json();
         window.stateManager.localState.allBrothers.forEach(bro => {
@@ -214,7 +218,7 @@
 
       // Load global settings from backend
       try {
-        const res = await fetch('/api/rush/admin-settings' + window.location.search);
+        const res = await fetch(rushApiUrl('/api/rush/admin-settings'));
         if (!res.ok) throw new Error('Failed to load admin settings');
         const adminSettings = await res.json();
         window.stateManager.localState.globalDisableAddRecruits = adminSettings.globalDisableAddRecruits || false;
@@ -233,7 +237,7 @@
     // Global settings handlers
     function setGlobalAddRecruits(disabled) {
       window.stateManager.localState.globalDisableAddRecruits = disabled;
-      fetch('/api/rush/admin-settings/global' + window.location.search, {
+      fetch(rushApiUrl('/api/rush/admin-settings/global'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'globalDisableAddRecruits', value: disabled })
@@ -242,7 +246,7 @@
 
     function setGlobalCommenting(disabled) {
       window.stateManager.localState.globalDisableCommenting = disabled;
-      fetch('/api/rush/admin-settings/global' + window.location.search, {
+      fetch(rushApiUrl('/api/rush/admin-settings/global'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: 'globalDisableCommenting', value: disabled })
@@ -296,7 +300,7 @@
         return;
       }
       const settingsToSave = window.stateManager.localState.disabledBrotherSettings[selectedBrotherEmail] || {};
-      fetch('/api/rush/admin-settings/brother' + window.location.search, {
+      fetch(rushApiUrl('/api/rush/admin-settings/brother'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: selectedBrotherEmail, settings: settingsToSave })
@@ -597,7 +601,7 @@
       throttledRender();
 
       try {
-        const res = await fetch('/api/rush/recruits/' + currentRushEvent.recruitsTabId + '/' + id + window.location.search, {
+        const res = await fetch(rushApiUrl('/api/rush/recruits/' + currentRushEvent.recruitsTabId + '/' + id), {
           method: 'DELETE'
         });
         const result = await res.json();
@@ -672,7 +676,7 @@
           closeModal();
 
           try {
-            const res = await fetch('/api/rush/recruits/save' + window.location.search, {
+            const res = await fetch(rushApiUrl('/api/rush/recruits/save'), {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -737,7 +741,7 @@
           throttledRender();
           closeModal();
 
-          fetch('/api/rush/recruits/save' + window.location.search, {
+          fetch(rushApiUrl('/api/rush/recruits/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -869,7 +873,7 @@
         const currentMember = members.find(m => String(m.id) === recruitId);
         if (!currentMember) return;
 
-        fetch('/api/rush/recruits/tier' + window.location.search, {
+        fetch(rushApiUrl('/api/rush/recruits/tier'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId, tier: currentMember.tier })
@@ -904,7 +908,7 @@
         const currentMember = members.find(m => String(m.id) === id);
         if (!currentMember) return;
 
-        fetch('/api/rush/recruits/tier' + window.location.search, {
+        fetch(rushApiUrl('/api/rush/recruits/tier'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId: id, tier: currentMember.tier })
@@ -938,7 +942,7 @@
       document.body.appendChild(toilet);
       setTimeout(() => { if (document.body.contains(toilet)) { document.body.removeChild(toilet); } }, 2000);
       
-      fetch('/api/rush/recruits/tier' + window.location.search, {
+      fetch(rushApiUrl('/api/rush/recruits/tier'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId: id, tier: 'flushed' })
@@ -968,7 +972,7 @@
       document.body.appendChild(plunger);
       setTimeout(() => { if (document.body.contains(plunger)) { document.body.removeChild(plunger); } }, 2000);
       
-      fetch('/api/rush/recruits/tier' + window.location.search, {
+      fetch(rushApiUrl('/api/rush/recruits/tier'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId: id, tier: 0 })
@@ -1042,7 +1046,7 @@
       // Visual feedback
       popComment(recruitId);
       
-      fetch('/api/rush/comments/save' + window.location.search, {
+      fetch(rushApiUrl('/api/rush/comments/save'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ commentsTabId: currentRushEvent.commentsTabId, recruitId, text })
@@ -1158,7 +1162,7 @@
 
       // Debounce the backend update
       stateManager.debounceUpdate(recruitId, 'likes', () => {
-        fetch('/api/rush/recruits/like' + window.location.search, {
+        fetch(rushApiUrl('/api/rush/recruits/like'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId })
@@ -1215,7 +1219,7 @@
 
       // Debounce the backend update
       stateManager.debounceUpdate(recruitId, 'dislikes', () => {
-        fetch('/api/rush/recruits/dislike' + window.location.search, {
+        fetch(rushApiUrl('/api/rush/recruits/dislike'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId })
@@ -1265,7 +1269,7 @@
   }
 
   // Backend Call
-  fetch('/api/rush/comments/delete' + window.location.search, {
+  fetch(rushApiUrl('/api/rush/comments/delete'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ commentsTabId: currentRushEvent.commentsTabId, recruitId, authorName })
@@ -1306,6 +1310,10 @@
         }
       }
 
+      const memberForMet = members.find(m => String(m.id) === recruitId);
+      const metBefore = JSON.parse((memberForMet && memberForMet.met) || '[]');
+      const isUnmet = metBefore.includes(currentUser);
+
       const revert = updateMemberOptimistically(recruitId, 'met', (currentMet) => {
         let met = JSON.parse(currentMet || '[]');
         const idx = met.indexOf(currentUser);
@@ -1317,10 +1325,22 @@
         return JSON.stringify(met);
       });
 
+      var revertLikes, revertDislikes;
+      if (isUnmet) {
+        revertLikes = updateMemberOptimistically(recruitId, 'likes', (currentLikes) => {
+          let likes = JSON.parse(currentLikes || '[]');
+          return JSON.stringify(likes.filter(u => u !== currentUser));
+        });
+        revertDislikes = updateMemberOptimistically(recruitId, 'dislikes', (currentDislikes) => {
+          let dislikes = JSON.parse(currentDislikes || '[]');
+          return JSON.stringify(dislikes.filter(u => u !== currentUser));
+        });
+      }
+
       // Debounce the backend update
       stateManager.debounceUpdate(recruitId, 'met', () => {
         console.log(`Calling backend addMet for ${recruitId}, user: ${currentUser}, session: ${RUSH_SESSION_ID}`);
-        fetch('/api/rush/recruits/met' + window.location.search, {
+        fetch(rushApiUrl('/api/rush/recruits/met'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId })
@@ -1333,6 +1353,8 @@
           .catch(function(err) {
             console.error(`Failed to update met status:`, err);
             if (revert) revert();
+            if (revertLikes) revertLikes();
+            if (revertDislikes) revertDislikes();
             showMessage(`Failed to update 'met' status: ${err.message || err}`, 'error');
           });
       }, 300);
@@ -4093,6 +4115,9 @@
       RUSH_SESSION_ID = SESSION_ID;
     }
     console.log('Rush Page - RUSH_SESSION_ID:', RUSH_SESSION_ID ? 'SET' : 'EMPTY', '(length:', RUSH_SESSION_ID ? RUSH_SESSION_ID.length : 0, ')');
+    function rushApiUrl(path) {
+      return BASE_URL + path + '?session_id=' + encodeURIComponent(RUSH_SESSION_ID);
+    }
     // stateManager is already defined in the first script block
     var position = '<%- position %>';
     var BASE_URL = '<%- baseUrl %>';
@@ -5135,7 +5160,7 @@
     if (!rushId) {
       onFailure(new Error('No Rush Event ID provided in URL.'));
     } else {
-      fetch('/api/rush/page/' + rushId + '/details' + window.location.search)
+      fetch(rushApiUrl('/api/rush/page/' + rushId + '/details'))
         .then(function(r) {
           if (!r.ok) throw new Error('Failed to load rush details');
           return r.json();
@@ -5202,13 +5227,13 @@
       stateManager.version++;
       const updateVersion = stateManager.version;
       
-      fetch('/api/rush/page/' + rushId + '/recruits' + window.location.search)
+      fetch(rushApiUrl('/api/rush/page/' + rushId + '/recruits'))
         .then(function(r) {
           if (!r.ok) throw new Error('Failed to load recruits');
           return r.json();
         })
         .then(function(serverRecruits) {
-          return fetch('/api/rush/page/' + rushId + '/comments' + window.location.search)
+          return fetch(rushApiUrl('/api/rush/page/' + rushId + '/comments'))
             .then(function(r) {
               if (!r.ok) throw new Error('Failed to load comments');
               return r.json();
@@ -5306,7 +5331,7 @@
       subtitle.textContent = 'Loading...';
 
       // Call backend to get leaderboard data
-      fetch('/api/rush/events/' + rushId + '/engagement' + window.location.search)
+      fetch(rushApiUrl('/api/rush/events/' + rushId + '/engagement'))
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.error) {
@@ -5766,7 +5791,7 @@ function renderCommentHtml(c, memberId, isTemp) {
       subtitle.textContent = 'Loading all scores...';
 
       // Call backend to get leaderboard data
-      fetch('/api/rush/events/' + rushId + '/engagement' + window.location.search)
+      fetch(rushApiUrl('/api/rush/events/' + rushId + '/engagement'))
         .then(function(r) { return r.json(); })
         .then(function(data) {
           if (data.error) {

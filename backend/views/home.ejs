@@ -943,13 +943,14 @@
             const backButton = `<a href="#" data-page="home" class="back-to-home-btn">🏠 Back to Portal Home</a>`;
             const frag = document.createRange().createContextualFragment(htmlString);
             const scripts = Array.from(frag.querySelectorAll('script'));
+            scripts.forEach(s => s.remove());
             appShell.innerHTML = `<div class="container">${backButton}</div>`;
             appShell.querySelector('.container').appendChild(frag);
             setTimeout(() => {
                 scripts.forEach(s => {
                     const ns = document.createElement('script');
-                    ns.textContent = `(function(){\n${s.textContent}\n})();`;
-                    document.body.appendChild(ns).parentNode.removeChild(ns);
+                    if (s.src) { ns.src = s.src; } else { ns.textContent = s.textContent; }
+                    document.body.appendChild(ns);
                 });
                 hideLoader();
             }, 0);

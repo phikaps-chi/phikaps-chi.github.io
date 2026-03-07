@@ -588,23 +588,18 @@ async function getSheetTitleByTabId(tabId) {
 // ---------------------------------------------------------------------------
 
 async function getNextAvailableId(tabId) {
-  const release = await rushMutex.acquire();
-  try {
-    const cacheKey = `lastId_${tabId}`;
-    let lastId = cache.get(cacheKey) || 0;
-    if (lastId === 0) {
-      const data = await getRecruitsData(tabId);
-      lastId = data.slice(1).reduce((m, r) => {
-        const id = Number(r[0]);
-        return !isNaN(id) && id > m ? id : m;
-      }, 0);
-    }
-    const next = lastId + 1;
-    cache.set(cacheKey, next, 0);
-    return next;
-  } finally {
-    release();
+  const cacheKey = `lastId_${tabId}`;
+  let lastId = cache.get(cacheKey) || 0;
+  if (lastId === 0) {
+    const data = await getRecruitsData(tabId);
+    lastId = data.slice(1).reduce((m, r) => {
+      const id = Number(r[0]);
+      return !isNaN(id) && id > m ? id : m;
+    }, 0);
   }
+  const next = lastId + 1;
+  cache.set(cacheKey, next, 0);
+  return next;
 }
 
 async function addOrUpdateRecruitWithPhoto(recruitsTabId, id, name, email, phone, instagram, contactsJson, base64Data, addedBy) {
@@ -850,8 +845,9 @@ async function addMet(tabId, recruitId, userName) {
 
     let arr = JSON.parse(data[rowIndex][metCol] || '[]');
     const idx = arr.indexOf(userName);
-    if (idx === -1) arr.push(userName);
-    else arr.splice(idx, 1);
+    const isUnmet = idx !== -1;
+    if (isUnmet) arr.splice(idx, 1);
+    else arr.push(userName);
 
     const colLetter = String.fromCharCode(65 + metCol);
     await sheets.spreadsheets.values.update({
@@ -860,6 +856,33 @@ async function addMet(tabId, recruitId, userName) {
       valueInputOption: 'USER_ENTERED',
       requestBody: { values: [[JSON.stringify(arr)]] },
     });
+
+    if (isUnmet) {
+      const likesCol = headers.indexOf('Likes');
+      const dislikesCol = headers.indexOf('Dislikes');
+      if (likesCol !== -1) {
+        let likes = JSON.parse(data[rowIndex][likesCol] || '[]');
+        likes = likes.filter((u) => u !== userName);
+        const lLetter = String.fromCharCode(65 + likesCol);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: config.rushSpreadsheetId,
+          range: `'${sheetTitle}'!${lLetter}${rowIndex + 1}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[JSON.stringify(likes)]] },
+        });
+      }
+      if (dislikesCol !== -1) {
+        let dislikes = JSON.parse(data[rowIndex][dislikesCol] || '[]');
+        dislikes = dislikes.filter((u) => u !== userName);
+        const dLetter = String.fromCharCode(65 + dislikesCol);
+        await sheets.spreadsheets.values.update({
+          spreadsheetId: config.rushSpreadsheetId,
+          range: `'${sheetTitle}'!${dLetter}${rowIndex + 1}`,
+          valueInputOption: 'USER_ENTERED',
+          requestBody: { values: [[JSON.stringify(dislikes)]] },
+        });
+      }
+    }
 
     clearRecruitsCache(tabId);
     try { const { notifySSE } = require('./server'); notifySSE('refresh'); } catch (_) {}
