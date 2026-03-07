@@ -500,7 +500,7 @@
     function openAddModal() {
       // SECURITY: Prevent adding new members if rush is locked OR globally disabled by admin
       if (isLocked) {
-        alert('This rush event is locked (view-only mode). You cannot add new members to archived rush events.');
+        alert('This rush event is locked (view-only mode). You cannot add new recruits to archived rush events.');
         return;
       }
       if (window.stateManager.localState.globalDisableAddRecruits) {
@@ -508,11 +508,11 @@
         return;
       }
     
-      currentFilter = 'all';
+      activeFilters.clear();
       sortMembers('all');
     
       editingMemberId = null;
-      document.getElementById('modalTitle').textContent = 'Add New Member';
+      document.getElementById('modalTitle').textContent = 'Add New Recruit';
       document.getElementById('memberForm').reset();
       document.getElementById('memberModal').style.display = 'flex';
       trackModalState(true);
@@ -720,8 +720,8 @@
           members.unshift(tempMember); // Add to beginning of array
           stateManager.localState.members.set(tempId, { ...tempMember });
           
-          currentFilter = 'all';
-          searchTerm = ''; // Clear search to ensure new member is visible
+          activeFilters.clear();
+          searchTerm = '';
           
           // Clear search input if it exists
           const searchInput = document.getElementById('searchInput');
@@ -1339,21 +1339,30 @@
     }
     
     function sortMembers(filter) {
-      currentFilter = filter;
       searchTerm = '';
+
+      if (filter === 'all') {
+        activeFilters.clear();
+      } else if (activeFilters.has(filter)) {
+        activeFilters.delete(filter);
+      } else {
+        activeFilters.add(filter);
+      }
+
       throttledRender();
       updateControlsStats();
-      
-      // Close the panel after selection on mobile
-      if (window.innerWidth <= 768) {
-        const toggle = document.getElementById('controlsToggle');
-        const panel = document.getElementById('controlsPanel');
-        if (toggle && panel) {
-          controlsOpen = false;
-          toggle.classList.remove('active');
-          panel.classList.remove('open');
+      updateFilterHighlights();
+    }
+
+    function updateFilterHighlights() {
+      document.querySelectorAll('.quick-action-btn[data-filter]').forEach(function(btn) {
+        var f = btn.dataset.filter;
+        if (f === 'all') {
+          btn.classList.toggle('active-filter', activeFilters.size === 0);
+        } else {
+          btn.classList.toggle('active-filter', activeFilters.has(f));
         }
-      }
+      });
     }
     
     function isMemberFormDirty() {
@@ -1820,15 +1829,14 @@
     
     .controls-wrapper {
         position: fixed;
-        top: 20px;
+        bottom: 20px;
         right: 20px;
         z-index: 100;
       }
-    
-    @media (min-width: 769px) {
+
       .controls-panel {
         position: fixed;
-        top: 80px;
+        bottom: 80px;
         right: 20px;
         background: var(--bg-secondary);
         border: 1px solid var(--border-color);
@@ -1840,24 +1848,21 @@
         max-height: calc(100vh - 120px);
         overflow-y: auto;
         overscroll-behavior: contain;
-        -webkit-overflow-scrolling: touch;
         z-index: 1000;
-    
+
         opacity: 0;
         visibility: hidden;
-        transform: translateX(8px);
+        transform: translateY(8px);
         pointer-events: none;
         transition: var(--transition);
       }
-    
-      /* Ensure the open state overrides the above on desktop too */
+
       .controls-panel.open {
         opacity: 1;
         visibility: visible;
-        transform: translateX(0);
+        transform: translateY(0);
         pointer-events: auto;
       }
-    }
       
       /* Ensure the controls wrapper doesn't block content */
       .controls-wrapper {
@@ -1963,6 +1968,12 @@
         background: rgba(255, 215, 0, 0.2);
         border-color: var(--primary-gold);
         transform: translateX(-2px);
+      }
+
+      .quick-action-btn.active-filter {
+        background: rgba(255, 215, 0, 0.25);
+        border-color: var(--primary-gold);
+        box-shadow: 0 0 12px rgba(255, 215, 0, 0.2);
       }
     
       /* Minimal top bar */
@@ -2120,99 +2131,6 @@
         }
       }
     
-      /* Hide desktop controls */
-      .controls-wrapper {
-        display: none !important;
-      }
-    
-      /* The main container for the drawer */
-      .drawer-container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 200;
-        background: var(--bg-secondary);
-        border-top: 1px solid var(--border-color);
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -5px 30px rgba(0, 0, 0, 0.4);
-        transform: translateY(calc(100% - 50px));
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        padding-top: 20px;
-        max-height: 80vh;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-      }
-      
-    
-      .drawer-container.open {
-        transform: translateY(0);
-      }
-    
-      /* The grab handle visual cue */
-      .drawer-handle {
-        position: absolute;
-        top: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 40px;
-        height: 5px;
-        background-color: rgba(255, 255, 255, 0.3);
-        border-radius: 2.5px;
-        cursor: grab;
-      }
-    
-      /* Controls panel inside drawer */
-      .drawer-container .controls-panel {
-        position: static !important;
-        transform: none !important;
-        max-width: 100% !important;
-        width: 100% !important;
-        height: 100%;
-        overflow-y: auto;
-        padding: 20px;
-        background: transparent;
-        border: none;
-        box-shadow: none;
-        display: block !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-      }
-    
-      /* Overlay to close the drawer on tap */
-      .drawer-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 199;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.3s ease;
-      }
-    
-      .drawer-overlay.visible {
-        opacity: 1;
-        pointer-events: auto;
-      }
-    
-      .drawer-container::after {
-        content: "Swipe up for controls";
-        position: absolute;
-        top: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: var(--text-secondary);
-        font-size: 12px;
-        opacity: 0.7;
-      }
-      
-      .drawer-container.open::after {
-        display: none;
-      }
     }
     
       /* Smooth transitions for member cards - reduced for performance */
@@ -3587,128 +3505,29 @@
         }
       }
     
-      /* Styles for the new swipe-up drawer on mobile */
     @media (max-width: 768px) {
-      /* Hide the original floating button on mobile, as the drawer replaces it */
-      .controls-wrapper {
-        display: none !important;
+      .controls-panel {
+        min-width: 0;
+        max-width: calc(100vw - 40px);
+        width: calc(100vw - 40px);
+        right: 20px;
+        max-height: 60vh;
       }
-    }
-    
-    @media (max-width: 768px) {
-      /* The main container for the drawer */
-      .drawer-container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 200;
-        background: var(--bg-secondary);
-        border-top: 1px solid var(--border-color);
-        border-radius: 20px 20px 0 0;
-        box-shadow: 0 -5px 30px rgba(0, 0, 0, 0.4);
-        /* Start with only 50px visible at the bottom as an affordance */
-        transform: translateY(calc(100% - 50px));
-        transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-        will-change: transform;
-        padding-top: 20px; /* Space for the handle */
-        touch-action: none; /* Prevents page scroll while dragging drawer */
-      }
-    
-      .drawer-container.open {
-        transform: translateY(0);
-      }
-    
-      /* The grab handle visual cue */
-      .drawer-handle {
-        position: absolute;
-        top: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        width: 50px;
-        height: 5px;
-        background-color: rgba(255, 215, 0, 0.5);
-        border-radius: 3px;
-        transition: background-color 0.2s ease;
-      }
-    
-      .drawer-container.open .drawer-handle {
-        background-color: rgba(255, 215, 0, 0.7);
-      }
-    
-      /* Re-style the controls panel to fit inside the new drawer */
-      #controlsPanel {
-        max-height: 75vh; /* Improved height for better usability */
-        overflow-y: auto;
-        overflow-x: hidden;
-        padding: 10px;
-        border-radius: 0;
-        box-shadow: none;
-        border: none;
-        background: transparent;
-        position: relative !important; /* Override inline styles */
-        top: auto !important;
-        right: auto !important;
-        left: auto !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-        scrollbar-width: thin;
-        scrollbar-color: rgba(255, 215, 0, 0.3) transparent;
-      }
-    
-      /* Custom scrollbar for webkit browsers */
-      #controlsPanel::-webkit-scrollbar {
-        width: 6px;
-      }
-    
-      #controlsPanel::-webkit-scrollbar-track {
-        background: transparent;
-      }
-    
-      #controlsPanel::-webkit-scrollbar-thumb {
-        background: rgba(255, 215, 0, 0.3);
-        border-radius: 3px;
-      }
-    
-      #controlsPanel::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 215, 0, 0.5);
-      }
-    
-      /* Overlay to close the drawer on tap */
-      .drawer-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 199;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.4s ease;
-      }
-    
-      .drawer-overlay.visible {
-        opacity: 1;
-        pointer-events: auto;
-      }
-    
-      /* Mobile-friendly improvements for controls */
+
       .controls-panel h3 {
         font-size: 20px;
         margin-bottom: 16px;
       }
-    
+
       .controls-panel h4 {
         font-size: 16px;
         margin-bottom: 12px;
       }
-    
+
       .controls-section {
         margin-bottom: 24px;
       }
-    
+
       .quick-action-btn {
         padding: 16px 20px;
         font-size: 16px;
@@ -3716,46 +3535,37 @@
         border-radius: 14px;
         gap: 12px;
       }
-    
+
       .quick-action-btn span {
         font-size: 20px;
       }
-    
-      /* Better touch feedback */
+
       .quick-action-btn:active {
         transform: scale(0.98);
         background: rgba(255, 215, 0, 0.25);
       }
-    
+
       .quick-actions {
         gap: 14px;
       }
-    
-      /* Stats display improvements */
+
       .stats-display {
         gap: 14px;
       }
-    
+
       .stat-item {
         padding: 14px;
       }
-    
+
       .stat-label {
         font-size: 13px;
       }
-    
+
       .stat-value {
         font-size: 18px;
         font-weight: 600;
       }
-    
-      /* Better visual hierarchy */
-      #controlsPanel {
-        padding: 16px;
-        padding-bottom: 24px; /* Extra padding at bottom for easier scrolling */
-      }
-    
-      /* Ensure last section has enough bottom padding */
+
       .controls-section:last-child {
         padding-bottom: 20px;
       }
@@ -4113,7 +3923,7 @@
         <div class="controls-section">
           <div class="quick-actions">
             <button class="quick-action-btn" onclick="openAddModal()">
-              <span>➕</span> Add New Member
+              <span>➕</span> Add New Recruit
             </button>
           </div>
         </div>
@@ -4122,25 +3932,25 @@
         <div class="controls-section">
           <h4 style="color: var(--primary-gold); font-size: 16px; margin-bottom: 10px;">Filter by Tier</h4>
           <div class="quick-actions">
-            <button class="quick-action-btn" onclick="sortMembers('all')">
+            <button class="quick-action-btn active-filter" data-filter="all" onclick="sortMembers('all')">
               <span>👥</span> Show All
             </button>
-            <button class="quick-action-btn" onclick="sortMembers('tier0')">
+            <button class="quick-action-btn" data-filter="tier0" onclick="sortMembers('tier0')">
               <span>👤</span> Tier 0 - Initial
             </button>
-            <button class="quick-action-btn" onclick="sortMembers('tier1')">
+            <button class="quick-action-btn" data-filter="tier1" onclick="sortMembers('tier1')">
               <span>🚢</span> Tier 1 - Boat Cruise
             </button>
-            <button class="quick-action-btn" onclick="sortMembers('tier2')">
+            <button class="quick-action-btn" data-filter="tier2" onclick="sortMembers('tier2')">
               <span>🦞</span> Tier 2 - Steak & Lobster
             </button>
-            <button class="quick-action-btn" onclick="sortMembers('tier3')">
+            <button class="quick-action-btn" data-filter="tier3" onclick="sortMembers('tier3')">
               <span>🎯</span> Tier 3 - Bid Dinner
             </button>
-            <button class="quick-action-btn" onclick="sortMembers('tier4')">
+            <button class="quick-action-btn" data-filter="tier4" onclick="sortMembers('tier4')">
               <span>✉️</span> Tier 4 - Bid
             </button>
-            <button class="quick-action-btn" onclick="sortMembers('flushed')">
+            <button class="quick-action-btn" data-filter="flushed" onclick="sortMembers('flushed')">
               <span>🚽</span> Flushed
             </button>
           </div>
@@ -4203,7 +4013,7 @@
     
     <div class="modal" id="memberModal">
       <div class="modal-content">
-        <h2 id="modalTitle">Add New Member</h2>
+        <h2 id="modalTitle">Add New Recruit</h2>
         <form id="memberForm">
           <div class="form-group">
             <label for="memberName">Name *</label>
@@ -4269,7 +4079,7 @@
     <script>
     // Global variables
     var members = [];
-    var currentFilter = 'all';
+    var activeFilters = new Set();
     var editingMemberId = null;
     var currentUser = '<%- name %>'; // User's display name for UI
     var currentUserEmail = '<%- email %>'; // User's email for validation
@@ -4347,8 +4157,6 @@
         panel.classList.remove('open');
       }
       
-      // Reset the original parent reference
-      controlsPanelOriginalParent = null;
     }
     
     // Initialize controls panel
@@ -4367,12 +4175,10 @@
       panel.addEventListener('touchmove', e => e.stopPropagation(), { passive: true });
       
       if (!toggle || !panel) return;
-    
-       if (window.innerWidth > 768) {
-        panel.style.visibility = '';
-        panel.style.opacity = '';
-      }
-      
+
+      panel.style.visibility = '';
+      panel.style.opacity = '';
+
       toggle.addEventListener('click', function(e) {
         e.stopPropagation();
         console.log('[CTRL] click!  controlsOpen was', controlsOpen);
@@ -4423,18 +4229,17 @@
     function updateControlsStats() {
       const totalRecruits = document.getElementById('totalRecruits');
       const currentFilterDisplay = document.getElementById('currentFilterDisplay');
-      
+
       if (totalRecruits) {
         const filteredCount = getFilteredMembers().length;
         const totalCount = members.length;
-        totalRecruits.textContent = currentFilter === 'all' ? 
-          totalCount : 
+        totalRecruits.textContent = activeFilters.size === 0 ?
+          totalCount :
           `${filteredCount} / ${totalCount}`;
       }
-      
+
       if (currentFilterDisplay) {
         const filterNames = {
-          'all': 'All',
           'tier0': 'Tier 0',
           'tier1': 'Boat Cruise',
           'tier2': 'Steak & Lobster',
@@ -4442,315 +4247,24 @@
           'tier4': 'Bid',
           'flushed': 'Flushed'
         };
-        currentFilterDisplay.textContent = filterNames[currentFilter] || 'All';
+        if (activeFilters.size === 0) {
+          currentFilterDisplay.textContent = 'All';
+        } else {
+          currentFilterDisplay.textContent = Array.from(activeFilters).map(function(f) { return filterNames[f] || f; }).join(', ');
+        }
       }
       renderActiveUsers();
     }
     
-    // This variable will remember the original location of the controls panel
-    var controlsPanelOriginalParent = window.controlsPanelOriginalParent || null;
-    
     function teardownSwipeControls() {
       const mobileDrawer = document.getElementById('mobileDrawer');
       const overlay = document.getElementById('drawerOverlay');
-      const controlsPanel = document.getElementById('controlsPanel');
-    
-      // If the panel and its original home exist, put it back
-      if (controlsPanel && controlsPanelOriginalParent) {
-        // Restore original styles needed for PC view
-        controlsPanel.style.position = '';
-        controlsPanel.style.transform = '';
-        controlsPanel.style.maxWidth = '';
-        controlsPanel.style.width = '';
-        controlsPanel.style.height = '';
-        controlsPanel.style.overflow = '';
-        controlsPanel.style.padding = '';
-        controlsPanel.style.background = '';
-        controlsPanel.style.border = '';
-        controlsPanel.style.boxShadow = '';
-        controlsPanel.style.display = '';
-        controlsPanel.style.opacity = '';
-        controlsPanelOriginalParent.appendChild(controlsPanel);
-      }
-    
-      // Remove the mobile-only elements
       if (mobileDrawer) mobileDrawer.remove();
       if (overlay) overlay.remove();
-    
-      // Make sure the desktop wrapper is visible
-      const desktopWrapper = document.querySelector('.controls-wrapper');
-      if (desktopWrapper) {
-        desktopWrapper.style.display = ''; // Use empty string to revert to CSS default
-      }
-    
-      // Also ensure the panel has the correct classes
-      const panel = document.getElementById('controlsPanel');
-      if (panel) {
-        panel.classList.remove('open'); // Reset the open state
-      }
     }
     
     function setupSwipeUpControls() {
-      // If we are on a PC-sized screen, tear down any mobile UI and exit.
-      if (window.innerWidth > 768) {
-        teardownSwipeControls();
-        return;
-      }
-    
-      // If the mobile drawer is already built, do nothing.
-      if (document.getElementById('mobileDrawer')) return;
-    
-      const controlsPanel = document.getElementById('controlsPanel');
-      if (!controlsPanel) return;
-    
-      // Remember original parent
-      if (!controlsPanelOriginalParent) {
-        controlsPanelOriginalParent = controlsPanel.parentElement;
-      }
-    
-      // Create drawer container
-      const drawerContainer = document.createElement('div');
-      drawerContainer.id = 'mobileDrawer';
-      drawerContainer.className = 'drawer-container';
-    
-      // Create handle
-      const drawerHandle = document.createElement('div');
-      drawerHandle.className = 'drawer-handle';
-      drawerContainer.appendChild(drawerHandle);
-    
-      // Create overlay
-      const overlay = document.createElement('div');
-      overlay.id = 'drawerOverlay';
-      overlay.className = 'drawer-overlay';
-    
-      // Move the panel into the drawer
-      drawerContainer.appendChild(controlsPanel);
-    
-      // Make sure the panel is visible
-      controlsPanel.style.display = 'block';
-      controlsPanel.style.opacity = '1';
-    
-      // Add to DOM
-      document.body.appendChild(drawerContainer);
-      document.body.appendChild(overlay);
-    
-      // Touch handling variables
-      let startY = 0;
-      let currentY = 0;
-      let startTime = 0;
-      let isDragging = false;
-      let containerHeight = 0;
-      let isOpen = false;
-      let currentTranslateY = 0;
-      let lastVelocity = 0;
-    
-      // Constants for better feel
-      const SWIPE_THRESHOLD = 50; // pixels
-      const VELOCITY_THRESHOLD = 0.5; // pixels per ms
-      const RUBBER_BAND_FACTOR = 0.3; // resistance when over-dragging
-      const CLOSED_POSITION = 50; // pixels visible when closed
-    
-      // Get drawer height
-      function updateDrawerHeight() {
-        containerHeight = drawerContainer.offsetHeight;
-      }
-    
-      // Calculate the translation based on open/closed state
-      function getTargetTranslateY(open) {
-        return open ? 0 : containerHeight - CLOSED_POSITION;
-      }
-    
-      // Apply transform with hardware acceleration
-      function setTransform(translateY, transition = false) {
-        currentTranslateY = translateY;
-        if (transition) {
-          drawerContainer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-        } else {
-          drawerContainer.style.transition = 'none';
-        }
-        drawerContainer.style.transform = `translate3d(0, ${translateY}px, 0)`;
-      }
-    
-      // Initialize position
-      updateDrawerHeight();
-      setTransform(getTargetTranslateY(false));
-    
-      // Open drawer
-      function openDrawer() {
-        isOpen = true;
-        drawerContainer.classList.add('open');
-        overlay.classList.add('visible');
-        setTransform(0, true);
-      }
-    
-      // Close drawer
-      function closeDrawer() {
-        isOpen = false;
-        drawerContainer.classList.remove('open');
-        overlay.classList.remove('visible');
-        setTransform(getTargetTranslateY(false), true);
-      }
-    
-      // Toggle drawer
-      function toggleDrawer() {
-        if (isOpen) {
-          closeDrawer();
-        } else {
-          openDrawer();
-        }
-      }
-    
-      // Touch/Mouse start
-      function handleStart(clientY) {
-        isDragging = true;
-        startY = clientY;
-        currentY = clientY;
-        startTime = Date.now();
-        lastVelocity = 0;
-        updateDrawerHeight();
-        drawerContainer.style.transition = 'none';
-      }
-    
-      // Touch/Mouse move
-      function handleMove(clientY) {
-        if (!isDragging) return;
-        
-        const deltaY = clientY - startY;
-        const deltaTime = Date.now() - startTime;
-        
-        // Calculate velocity for momentum
-        if (deltaTime > 0) {
-          lastVelocity = (clientY - currentY) / deltaTime;
-        }
-        currentY = clientY;
-        
-        let newTranslateY;
-        
-        if (isOpen) {
-          // When open, dragging down closes it
-          if (deltaY > 0) {
-            // Apply rubber band effect if trying to drag beyond closed position
-            if (deltaY > containerHeight - CLOSED_POSITION) {
-              const excess = deltaY - (containerHeight - CLOSED_POSITION);
-              newTranslateY = (containerHeight - CLOSED_POSITION) + (excess * RUBBER_BAND_FACTOR);
-            } else {
-              newTranslateY = deltaY;
-            }
-          } else {
-            // Rubber band when trying to drag up beyond open
-            newTranslateY = deltaY * RUBBER_BAND_FACTOR;
-          }
-        } else {
-          // When closed, dragging up opens it
-          if (deltaY < 0) {
-            const basePosition = containerHeight - CLOSED_POSITION;
-            newTranslateY = Math.max(0, basePosition + deltaY);
-          } else {
-            // Rubber band when trying to drag down beyond closed
-            const basePosition = containerHeight - CLOSED_POSITION;
-            newTranslateY = basePosition + (deltaY * RUBBER_BAND_FACTOR);
-          }
-        }
-        
-        setTransform(newTranslateY);
-      }
-    
-      // Touch/Mouse end
-      function handleEnd() {
-        if (!isDragging) return;
-        isDragging = false;
-        
-        const deltaY = currentY - startY;
-        const deltaTime = Date.now() - startTime;
-        const velocity = deltaTime > 0 ? Math.abs(deltaY) / deltaTime : 0;
-        
-        // Determine if we should open or close based on position, velocity, and direction
-        let shouldOpen;
-        
-        if (isOpen) {
-          // Currently open - check if we should close
-          const draggedDistance = Math.abs(deltaY);
-          const draggedPercent = draggedDistance / containerHeight;
-          
-          shouldOpen = !(
-            draggedDistance > SWIPE_THRESHOLD || 
-            velocity > VELOCITY_THRESHOLD || 
-            draggedPercent > 0.3 ||
-            (lastVelocity > VELOCITY_THRESHOLD && deltaY > 0)
-          );
-        } else {
-          // Currently closed - check if we should open
-          const draggedDistance = Math.abs(deltaY);
-          const draggedPercent = draggedDistance / containerHeight;
-          
-          shouldOpen = (
-            draggedDistance > SWIPE_THRESHOLD || 
-            velocity > VELOCITY_THRESHOLD || 
-            draggedPercent > 0.3 ||
-            (Math.abs(lastVelocity) > VELOCITY_THRESHOLD && deltaY < 0)
-          ) && deltaY < 0;
-        }
-        
-        if (shouldOpen) {
-          openDrawer();
-        } else {
-          closeDrawer();
-        }
-      }
-    
-      // Touch events
-      drawerContainer.addEventListener('touchstart', (e) => {
-        if (e.target === drawerHandle || (!isOpen && e.target === drawerContainer)) {
-          handleStart(e.touches[0].clientY);
-          e.preventDefault();
-        }
-      });
-    
-      drawerContainer.addEventListener('touchmove', (e) => {
-        if (isDragging) {
-          handleMove(e.touches[0].clientY);
-          e.preventDefault();
-        }
-      });
-    
-      drawerContainer.addEventListener('touchend', handleEnd);
-      drawerContainer.addEventListener('touchcancel', handleEnd);
-    
-      // Mouse events for testing on desktop
-      drawerContainer.addEventListener('mousedown', (e) => {
-        if (e.target === drawerHandle || (!isOpen && e.target === drawerContainer)) {
-          handleStart(e.clientY);
-          e.preventDefault();
-        }
-      });
-    
-      document.addEventListener('mousemove', (e) => {
-        if (isDragging) {
-          handleMove(e.clientY);
-          e.preventDefault();
-        }
-      });
-    
-      document.addEventListener('mouseup', handleEnd);
-    
-      // Click to open when closed
-      drawerContainer.addEventListener('click', (e) => {
-        if (!isDragging && !isOpen && 
-            (e.target === drawerContainer || e.target === drawerHandle)) {
-          openDrawer();
-        }
-      });
-    
-      // Close on overlay click
-      overlay.addEventListener('click', closeDrawer);
-    
-      // Handle window resize
-      window.addEventListener('resize', () => {
-        updateDrawerHeight();
-        if (!isDragging) {
-          setTransform(getTargetTranslateY(isOpen));
-        }
-      });
+      teardownSwipeControls();
     }
     
     // Note: stateManager is already defined globally at the top of the page
@@ -5184,13 +4698,14 @@
         );
       }
     
-      if (currentFilter !== 'all') {
-        if (currentFilter === 'tier0') filteredMembers = filteredMembers.filter(m => m.tier === 0);
-        else if (currentFilter === 'tier1') filteredMembers = filteredMembers.filter(m => m.tier === 1);
-        else if (currentFilter === 'tier2') filteredMembers = filteredMembers.filter(m => m.tier === 2);
-        else if (currentFilter === 'tier3') filteredMembers = filteredMembers.filter(m => m.tier === 3);
-        else if (currentFilter === 'tier4') filteredMembers = filteredMembers.filter(m => m.tier === 4);
-        else if (currentFilter === 'flushed') filteredMembers = filteredMembers.filter(m => m.tier === 'flushed');
+      if (activeFilters.size > 0) {
+        var tierMap = { tier0: 0, tier1: 1, tier2: 2, tier3: 3, tier4: 4, flushed: 'flushed' };
+        filteredMembers = filteredMembers.filter(function(m) {
+          for (var f of activeFilters) {
+            if (m.tier === tierMap[f]) return true;
+          }
+          return false;
+        });
       }
     
       filteredMembers.sort((a, b) => {
@@ -5391,8 +4906,7 @@
                 Try adjusting your search or clearing it to see all members.
               </p>
             </div>`;
-        } else if (currentFilter !== 'all') {
-          // Filter returned no results
+        } else if (activeFilters.size > 0) {
           const filterNames = {
             'tier0': 'Tier 0 - Initial',
             'tier1': 'Tier 1 - Boat Cruise',
@@ -5401,12 +4915,13 @@
             'tier4': 'Tier 4 - Bid',
             'flushed': 'Flushed'
           };
+          const activeNames = Array.from(activeFilters).map(function(f) { return filterNames[f] || f; }).join(', ');
           emptyMessage = `
             <div class="empty-state">
-              <h3>No members in ${filterNames[currentFilter] || 'this category'}</h3>
+              <h3>No members in ${activeNames}</h3>
               <p>
-                There are currently no recruits in this tier. 
-                ${currentFilter === 'flushed' ? 'Great job keeping standards high!' : 'Check other tiers or add new members.'}
+                There are currently no recruits matching the selected filters.
+                ${activeFilters.has('flushed') && activeFilters.size === 1 ? 'Great job keeping standards high!' : 'Check other tiers or add new recruits.'}
               </p>
               <button class="cancel-btn" onclick="sortMembers('all')">Show All Members</button>
             </div>`;
@@ -5596,8 +5111,9 @@
       }, 200);
     
       searchInput.addEventListener('input', (e) => {
-        currentFilter = 'all'
-        updateControlsStats()
+        activeFilters.clear();
+        updateControlsStats();
+        updateFilterHighlights();
         if (searchInput.value.trim().length > 0) {
           clearSearchBtn.classList.remove('hidden');
         } else {
@@ -5743,12 +5259,12 @@
       if (searchInput && clearSearchBtn) {
         const debouncedSearchHandler = debounce(function(e) {
           searchTerm = e.target.value.trim().toLowerCase();
-          currentFilter = 'all'; // Reset filter when searching
-          
-          // Clear any pending scroll to new card since we're searching
+          activeFilters.clear();
+
           cardIdToScrollTo = null;
-          
+
           updateControlsStats();
+          updateFilterHighlights();
           throttledRender();
         }, 200);
     
