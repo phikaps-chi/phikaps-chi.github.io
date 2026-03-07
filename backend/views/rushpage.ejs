@@ -2003,7 +2003,7 @@
         top: 0;
         left: 0;
         right: 0;
-        background: rgba(10, 10, 10, 0.5);
+        background: rgba(10, 10, 10, 0);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border-bottom: 1px solid var(--border-color);
@@ -3596,21 +3596,6 @@
     }
     
     @media (max-width: 768px) {
-      .member-card,
-      .controls-panel,
-      .top-bar,
-      .modal,
-      .loading-overlay,
-      .tier-badge {
-        -webkit-backdrop-filter: none;
-        backdrop-filter: none;
-      }
-    
-      /* Optional: Use a slightly more opaque background to compensate */
-      .member-card {
-        background: rgba(255, 255, 255, 0.08);
-      }
-    
       /* The main container for the drawer */
       .drawer-container {
         position: fixed;
