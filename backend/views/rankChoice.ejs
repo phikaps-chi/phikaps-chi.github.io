@@ -1449,12 +1449,14 @@
         </div>
       `;
 
+      document.body.style.overflowY = 'hidden';
       document.getElementById('createPollModal').classList.add('active');
     }
 
     function closeCreatePollModal() {
       isInModal = false;
       document.getElementById('createPollModal').classList.remove('active');
+      document.body.style.overflowY = 'auto';
 
       // Re-enable submit button
       const submitBtn = document.querySelector('#createPollForm button[type="submit"]');
@@ -1469,11 +1471,13 @@
     // Algorithm Modal Functions
     function openAlgorithmModal() {
       isInModal = true;
+      document.body.style.overflowY = 'hidden';
       document.getElementById('algorithmModal').classList.add('active');
     }
 
     function closeAlgorithmModal() {
       isInModal = false;
+      document.body.style.overflowY = 'auto';
       document.getElementById('algorithmModal').classList.remove('active');
       applyPendingUpdate();
     }

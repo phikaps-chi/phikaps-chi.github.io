@@ -1999,10 +1999,11 @@
       }
 
       .top-bar {
-        position: relative;
+        position: sticky;
+        top: 0;
         left: 0;
         right: 0;
-        background: rgba(10, 10, 10, 0);
+        background: rgba(10, 10, 10, 0.5);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         border-bottom: 1px solid var(--border-color);
@@ -4086,7 +4087,8 @@
         />
         <button class="clear-search-btn hidden" id="clearSearchBtn">&times;</button>
       </div>
-      <div class="top-bar-buttons" style="display: flex; gap: 8px;">
+    </div>
+    <div class="top-bar-buttons" style="display: flex; gap: 8px; justify-content: center; padding: 10px 20px;">
         <button class="top-rushers-btn" onclick="showLeaderboardOnRushPage()" title="View engagement leaderboard">
           🏆 Top Rushers
         </button>
@@ -4096,7 +4098,6 @@
         <button id="allScoresBtn" class="top-rushers-btn" onclick="showAllScores()" title="View all brother scores" style="display: none; background: linear-gradient(45deg, #FF6B6B, #FF8E53);">
           📊 All Scores
         </button>
-      </div>
     </div>
     
     <div class="controls-wrapper">
