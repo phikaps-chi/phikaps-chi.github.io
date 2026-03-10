@@ -129,10 +129,26 @@
             cursor: grabbing;
         }
         
-        .nav-card:hover {
-            transform: translateY(-5px);
-            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
-            box-shadow: 0 10px 20px rgba(255, 215, 0, 0.3); border-color: #ffed4a;
+        @media (hover: hover) and (pointer: fine) {
+            .nav-card:hover {
+                transform: translateY(-5px);
+                background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+                box-shadow: 0 10px 20px rgba(255, 215, 0, 0.3); border-color: #ffed4a;
+            }
+        }
+        @media (hover: none) {
+            .nav-card:hover {
+                transform: none;
+                background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(20, 20, 20, 0.9) 100%);
+                box-shadow: 0 8px 32px rgba(255, 215, 0, 0.1);
+                border-color: #ffd700;
+            }
+            .nav-card:active {
+                transform: scale(0.97);
+                background: linear-gradient(135deg, rgba(255, 215, 0, 0.1) 0%, rgba(255, 215, 0, 0.05) 100%);
+                box-shadow: 0 4px 16px rgba(255, 215, 0, 0.3);
+                border-color: #ffed4a;
+            }
         }
         .nav-icon { font-size: 2.2rem; margin-bottom: 0.8rem; display: block; }
         .nav-title { font-size: 1.2rem; font-weight: 600; margin-bottom: 0.4rem; }

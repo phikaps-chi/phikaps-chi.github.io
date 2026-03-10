@@ -1928,9 +1928,8 @@
         z-index: 2000 !important;
       }
       
-      /* Ensure hover states work properly */
       .member-card:hover {
-        z-index: 2;
+        z-index: initial;
       }
       
       /* Special modals for "Bros who liked/disliked/met" */
@@ -2097,22 +2096,7 @@
         scroll-behavior: smooth;
       }
     
-      /* Card highlight animation for new members */
-      @keyframes highlightNew {
-        0% {
-          box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.8);
-        }
-        50% {
-          box-shadow: 0 0 30px 10px rgba(255, 215, 0, 0.4);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
-        }
-      }
-    
-      .member-card.highlight-new {
-        animation: highlightNew 1s ease-out 2;
-      }
+      /* Card highlight animation for new members - Removed as requested */
     
       /* Mobile optimizations */
       @media (max-width: 768px) {
@@ -2398,18 +2382,12 @@
       }
     
       .member-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 30px var(--shadow-gold);
-        border-color: var(--primary-gold);
+        transform: none;
       }
     
       .member-card:hover::before {
-        opacity: 1;
+        opacity: 0;
       }
-      /* Additional fix for member card hover states */
-    .member-card:hover {
-      z-index: 2;
-    }
     
       /* Ensure modals for "Bros who liked/disliked/met" appear properly */
       #metModal,
@@ -2436,8 +2414,7 @@
       }
     
       .member-card:hover .member-photo {
-        transform: scale(1.05);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+        transform: none;
       }
     
       .member-info h3 {
@@ -4760,7 +4737,7 @@
     }
     
     // Improve the scroll to new member card
-    function scrollToCard(cardId, highlight = true) {
+    function scrollToCard(cardId) {
       if (!cardId) return;
       
       // Clear any preserved scroll since we're intentionally scrolling
@@ -4792,19 +4769,7 @@
             behavior: 'smooth'
           });
           
-          // Add highlight animation
-          if (highlight) {
-            // Remove any existing highlight first
-            card.classList.remove('highlight-new');
-            
-            // Force reflow and add highlight
-            requestAnimationFrame(() => {
-              card.classList.add('highlight-new');
-              setTimeout(() => {
-                card.classList.remove('highlight-new');
-              }, 3000);
-            });
-          }
+          // Highlight animation removed as requested
           
           console.log(`Successfully scrolled to card ${cardId}`);
           return true;
