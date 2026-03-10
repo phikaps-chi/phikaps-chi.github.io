@@ -3,7 +3,7 @@ const crypto = require('crypto');
 const config = require('./config');
 const { getParentSheet, isValidEmail, searchByEmail, findRowByValue } = require('./sheets');
 
-const sessionCache = new NodeCache({ stdTTL: config.cache.sessionTTL, checkperiod: 60 });
+const sessionCache = new NodeCache({ stdTTL: config.cache.sessionTTL, checkperiod: 600 });
 
 // ---------------------------------------------------------------------------
 // Token validation — mirrors validateTokenUsingTokeninfo() in Code.gs

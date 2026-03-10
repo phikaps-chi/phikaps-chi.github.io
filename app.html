@@ -314,7 +314,7 @@
             iframe.src = url;
             sessionCheckTimeout = setTimeout(() => {
                 debugLog('Session timeout → auth overlay'); clearSession(); iframeLoadState='timeout'; showAuthOverlay();
-            }, 20000);
+            }, 60000);
         }
 
         function initGSI() {
