@@ -408,6 +408,7 @@
                     break;
                 case 'rusharchives': fetch(BASE_URL + '/api/views/rusharchives' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
                 case 'rushpage': fetch(BASE_URL + '/api/views/rushpage' + qs + '&id=' + encodeURIComponent(id)).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
+                case 'dieelo': fetch(BASE_URL + '/api/views/dieelo' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
                 case 'rankChoice': fetch(BASE_URL + '/api/views/rankchoice' + qs + '&id=' + encodeURIComponent(id)).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
                 case 'rostermanagement': fetch(BASE_URL + '/api/views/rostermanagement' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;
                 case 'buttonmanager': fetch(BASE_URL + '/api/views/buttonmanager' + qs).then(r => r.text()).then(renderDynamicPage).catch(() => hideLoader()); break;

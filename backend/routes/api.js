@@ -29,6 +29,7 @@ router.get('/home-data', async (req, res) => {
       { icon: '\u{1F465}', title: 'Brother Directory', description: 'View contact information of all chapter members', href: 'https://docs.google.com/spreadsheets/d/1NR823yfHQvoTJcE_9jp6xNAZGmLMtTtoydTlVV9FVOY/edit?usp=sharing' },
       { icon: '\u{1F465}', title: 'Officers', description: 'View officers for each semester', href: 'https://docs.google.com/spreadsheets/d/1peDU0jsQChNQmq8uKdsAI0E1vGyNJN7XfmzoIdPbXX8/edit?usp=sharing' },
       { icon: '\u{1F3AF}', title: 'Rush', description: 'Access current Rush page and Archives', page: 'rusharchives', restrict: 'Pledge' },
+      { icon: '\u{1F3B2}', title: 'Die ELO', description: 'Track your Die performance and house rankings', page: 'dieelo' },
       { icon: '\u{2699}\u{FE0F}', title: 'PKS Admin', description: 'Officer resources. Requires authorization.', href: 'https://drive.google.com/drive/folders/1Zxai_m_j1DxIdpON-N8brQCGVWBhXWwg?usp=drive_link' },
       { icon: '\u{2699}\u{FE0F}', title: 'Phi Kap Connect', description: 'External portal for management with Nationals', href: 'https://login.phikapconnect.org/' },
       { icon: '\u{1F5F3}\u{FE0F}', title: 'Rank Choice', description: 'Page for voting for options', page: 'rankChoice' },

@@ -5,6 +5,7 @@ const isDev = process.env.NODE_ENV !== 'production';
 const config = {
   spreadsheetId: process.env.SPREADSHEET_ID || '1VbBlG81sdXFI3zyxZp-g_GQ1RwVH7ZHeKS6YIg6qZzg',
   rushSpreadsheetId: process.env.RUSH_SPREADSHEET_ID || '1vDvwUS9Feu4iQKnoFuz2_tj369_T-mreGS6DVnkPLFk',
+  dieSpreadsheetId: process.env.DIE_SPREADSHEET_ID || '1do4lJRRvJSRx8qTW0NAMJTWJjM4u0-uVJP8K3D3oJis',
   clientId: process.env.GOOGLE_CLIENT_ID || '598065229000-t98hc486hi7aek8km359vho06i299828.apps.googleusercontent.com',
 
   port: process.env.PORT || 3000,

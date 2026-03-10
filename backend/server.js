@@ -11,6 +11,7 @@ const buttonRoutes = require('./routes/buttons');
 const rushRoutes = require('./routes/rush');
 const adminRoutes = require('./routes/admin');
 const pollRoutes = require('./routes/polls');
+const dieEloRoutes = require('./routes/dieElo');
 
 const app = express();
 
@@ -139,6 +140,7 @@ app.use('/api/buttons', buttonRoutes);
 app.use('/api/rush', rushRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/polls', pollRoutes);
+app.use('/api/die', dieEloRoutes);
 
 // ---------------------------------------------------------------------------
 // View routes — return rendered HTML for sub-pages (rush, rankChoice, etc.)

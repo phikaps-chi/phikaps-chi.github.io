@@ -183,4 +183,28 @@ router.get('/rushpage', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Die ELO Page
+// ---------------------------------------------------------------------------
+
+router.get('/dieelo', async (req, res) => {
+  try {
+    const { getListOfBrothers } = require('../sigma');
+    const sigmaData = await getParentSheet('Sigma');
+    const contacts = getListOfBrothers(sigmaData);
+
+    res.render('dieelo', {
+      name: req.user.name,
+      email: req.user.email,
+      position: req.user.position,
+      sessionId: req.user.sessionId,
+      contacts,
+      baseUrl: '',
+    });
+  } catch (err) {
+    console.error('Die ELO view error:', err);
+    res.status(500).send('<p style="color:red;">Error loading Die ELO page.</p>');
+  }
+});
+
 module.exports = router;
