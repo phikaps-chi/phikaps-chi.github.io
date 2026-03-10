@@ -28,6 +28,12 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 
+if (config.isDev) {
+  // Serve the frontend static files from the parent directory in development
+  const path = require('path');
+  app.use(express.static(path.join(__dirname, '..')));
+}
+
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 120,

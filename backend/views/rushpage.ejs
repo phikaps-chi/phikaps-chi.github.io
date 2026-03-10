@@ -862,21 +862,27 @@
         return;
       }
 
+      const currentMember = members.find(m => String(m.id) === recruitId);
+      if (currentMember && Number(currentMember.tier) >= 4) {
+        return; // Cap at tier 4
+      }
+
       const revert = updateMemberOptimistically(recruitId, 'tier', (currentTier) => {
-        return currentTier < 4 ? currentTier + 1 : currentTier;
+        const numericTier = Number(currentTier);
+        return numericTier < 4 ? numericTier + 1 : numericTier;
       });
 
       fireConfetti();
 
       // Debounce the backend update - only send the final tier value
       stateManager.debounceUpdate(recruitId, 'tier', () => {
-        const currentMember = members.find(m => String(m.id) === recruitId);
-        if (!currentMember) return;
+        const memberToUpdate = members.find(m => String(m.id) === recruitId);
+        if (!memberToUpdate) return;
 
         fetch(rushApiUrl('/api/rush/recruits/tier'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId, tier: currentMember.tier })
+          body: JSON.stringify({ tabId: currentRushEvent.recruitsTabId, recruitId, tier: memberToUpdate.tier })
         })
           .then(function(r) { return r.json(); })
           .then(function() {
@@ -897,6 +903,11 @@
       if (isLocked) {
         alert('This rush event is locked (view-only mode). Tier changes are disabled.');
         return;
+      }
+
+      const currentMember = members.find(m => String(m.id) === id);
+      if (currentMember && Number(currentMember.tier) <= 0) {
+        return; // Cap at tier 0
       }
 
       const revert = updateMemberOptimistically(id, 'tier', () => newTier);
@@ -4716,34 +4727,35 @@
     // Get filtered members
     function getFilteredMembers() {
       var filteredMembers = [...members];
-    
+
       if (searchTerm) {
         filteredMembers = filteredMembers.filter(m =>
           m.name.toLowerCase().includes(searchTerm)
         );
       }
-    
+
       if (activeFilters.size > 0) {
         var tierMap = { tier0: 0, tier1: 1, tier2: 2, tier3: 3, tier4: 4, flushed: 'flushed' };
         filteredMembers = filteredMembers.filter(function(m) {
           for (var f of activeFilters) {
-            if (m.tier === tierMap[f]) return true;
+            if (String(m.tier) === String(tierMap[f])) return true;
           }
           return false;
         });
+
+        // Only sort when filters are active
+        filteredMembers.sort((a, b) => {
+          var tierA = (a.tier === 'flushed') ? -1 : a.tier;
+          var tierB = (b.tier === 'flushed') ? -1 : b.tier;
+
+          if (tierA === -1 && tierB !== -1) return 1;
+          if (tierB === -1 && tierA !== -1) return -1;
+          if (tierA === -1 && tierB === -1) return 0;
+
+          return b.tier - a.tier;
+        });
       }
-    
-      filteredMembers.sort((a, b) => {
-        var tierA = (a.tier === 'flushed') ? -1 : a.tier;
-        var tierB = (b.tier === 'flushed') ? -1 : b.tier;
-    
-        if (tierA === -1 && tierB !== -1) return 1;
-        if (tierB === -1 && tierA !== -1) return -1;
-        if (tierA === -1 && tierB === -1) return 0;
-    
-        return b.tier - a.tier;
-      });
-    
+
       return filteredMembers;
     }
     
