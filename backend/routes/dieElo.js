@@ -38,6 +38,18 @@ router.post('/games', async (req, res) => {
   }
 });
 
+router.post('/recalculate', async (req, res) => {
+  try {
+    if (!req.user.position || !req.user.position.includes('Chi')) {
+      return res.status(403).json({ error: 'Unauthorized. Only Chi can recalculate stats.' });
+    }
+    await dieElo.recalculateAllStats();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.put('/games/:id', async (req, res) => {
   try {
     const result = await dieElo.editGame(req.params.id, req.body, req.user.email);

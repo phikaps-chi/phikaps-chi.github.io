@@ -68,9 +68,14 @@ async function getGameHistory(userName) {
 }
 
 // ELO Calculation
-function calculateElo(teamAElo, teamBElo, winner, scoreType) {
+function calculateElo(teamAElo, teamBElo, winner, scoreType, winnerRemaining) {
   const K_BASE = 32;
-  const K = scoreType && scoreType.toLowerCase() === 'halves' ? K_BASE * 1.5 : K_BASE;
+  let K = scoreType && scoreType.toLowerCase() === 'halves' ? K_BASE * 1.5 : K_BASE;
+  
+  // Margin of Victory Multiplier (+20% for each extra point beyond 1)
+  const remaining = Math.max(1, Number(winnerRemaining) || 1);
+  const movMultiplier = 1 + (remaining - 1) * 0.2;
+  K = K * movMultiplier;
   
   const expectedA = 1 / (1 + Math.pow(10, (teamBElo - teamAElo) / 400));
   const expectedB = 1 / (1 + Math.pow(10, (teamAElo - teamBElo) / 400));
@@ -132,7 +137,8 @@ async function recalculateAllStats() {
     const teamAElo = ((pA1 ? pA1.elo : 1000) + (pA2 ? pA2.elo : 1000)) / ( (pA1?1:0) + (pA2?1:0) || 1 );
     const teamBElo = ((pB1 ? pB1.elo : 1000) + (pB2 ? pB2.elo : 1000)) / ( (pB1?1:0) + (pB2?1:0) || 1 );
     
-    const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type);
+    const remaining = parseInt(g.winner_remaining) || 1;
+    const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining);
     
     const updatePlayer = (p, isTeamA) => {
       if (!p) return;
@@ -461,4 +467,5 @@ module.exports = {
   addGame,
   editGame,
   deleteGame,
+  recalculateAllStats,
 };

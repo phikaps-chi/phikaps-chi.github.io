@@ -203,6 +203,11 @@
 <body>
     <div class="container">
         <div class="header">
+            <% if (position && position.includes('Chi')) { %>
+            <button class="btn btn-small" style="position: absolute; top: 0; right: 0; background: rgba(255, 215, 0, 0.1); border: 1px solid #ffd700; color: #ffd700; font-size: 0.7rem;" onclick="recalculateStats()" id="recalc-btn">
+                🔄 Recalculate
+            </button>
+            <% } %>
             <h1 class="title">Die ELO</h1>
             <p>Track your stats and house rankings</p>
             <div style="display: flex; justify-content: center; gap: 1rem; margin-top: 1rem;">
@@ -367,7 +372,7 @@
 
                 <div class="flex-between" style="margin-top: 2rem;">
                     <button type="button" class="btn btn-danger" onclick="closeModal('game-modal')">Cancel</button>
-                    <button type="submit" class="btn">Save Game</button>
+                    <button type="submit" class="btn" id="save-game-btn">Save Game</button>
                 </div>
             </form>
         </div>
@@ -385,13 +390,14 @@
                     <li style="margin-bottom: 0.4rem;"><strong>Win Probability:</strong> The system calculates the expected probability of winning based on the ELO difference: <br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">P(Win) = 1 / (1 + 10^((OpponentELO - YourELO) / 400))</code></li>
                     <li style="margin-bottom: 0.4rem;"><strong>The K-Factor (Stakes):</strong> This determines the maximum possible points you can win or lose in a single game.
                         <ul style="margin-left: 1.5rem; margin-top: 0.2rem;">
-                            <li><strong>Quarters:</strong> K = 32</li>
-                            <li><strong>Halves:</strong> K = 48 (1.5x multiplier)</li>
+                            <li><strong>Quarters:</strong> Base K = 32</li>
+                            <li><strong>Halves:</strong> Base K = 48 (1.5x multiplier)</li>
                         </ul>
                     </li>
-                    <li style="margin-bottom: 0.4rem;"><strong>The Point Swing:</strong> The actual points gained or lost is calculated as:<br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">Point Swing = K * (Outcome - P(Win))</code><br><em style="opacity: 0.8; font-size: 0.8rem;">(Where Outcome is 1 for a win and 0 for a loss)</em></li>
+                    <li style="margin-bottom: 0.4rem;"><strong>Margin of Victory:</strong> The more halves/quarters you win by, the bigger the points swing. For every additional point remaining beyond 1, the ELO swing increases by <strong>20%</strong>.</li>
+                    <li style="margin-bottom: 0.4rem;"><strong>The Point Swing:</strong> The actual points gained or lost is calculated as:<br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">Point Swing = K * MarginMultiplier * (Outcome - P(Win))</code><br><em style="opacity: 0.8; font-size: 0.8rem;">(Where Outcome is 1 for a win and 0 for a loss)</em></li>
                 </ul>
-                <p style="background: rgba(255, 215, 0, 0.1); padding: 0.8rem; border-radius: 8px; border-left: 3px solid #ffd700;"><strong>TL;DR:</strong> Beating a team with a much higher ELO than yours (an upset) will reward you with significantly more points than beating a lower-rated team. Playing with Halves increases the stakes by 50%</p>
+                <p style="background: rgba(255, 215, 0, 0.1); padding: 0.8rem; border-radius: 8px; border-left: 3px solid #ffd700;"><strong>TL;DR:</strong> Beating a team with a much higher ELO than yours (an upset) will reward you with significantly more points than beating a lower-rated team. Playing with Halves increases the stakes by 50%, and winning by a larger margin boosts your points even more.</p>
             </div>
             <div style="text-align: right;">
                 <button class="btn" onclick="closeModal('info-modal')">Got it</button>
@@ -432,7 +438,7 @@
             <div id="duplicate-details" style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem;"></div>
             <div class="flex-between">
                 <button class="btn btn-danger" onclick="closeModal('duplicate-modal')">Cancel</button>
-                <button class="btn" onclick="forceSubmitGame()">Yes, Log It</button>
+                <button class="btn" id="force-submit-btn" onclick="forceSubmitGame()">Yes, Log It</button>
             </div>
         </div>
     </div>
@@ -616,77 +622,96 @@
         async function submitGame(e) {
             e.preventDefault();
             
-            let drinkType = document.getElementById('drink-type').value;
-            if (drinkType === 'other') {
-                drinkType = document.getElementById('other-drink-input').value.trim();
-            }
+            const submitBtn = document.getElementById('save-game-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Saving...';
             
-            const data = {
-                team_a_player_1: document.getElementById('a-p1').value,
-                team_a_player_2: document.getElementById('a-p2').value,
-                team_b_player_1: document.getElementById('b-p1').value,
-                team_b_player_2: document.getElementById('b-p2').value,
-                winning_team: document.getElementById('winner').value,
-                score_type: document.getElementById('score-type').value,
-                winner_remaining: document.getElementById('remaining').value,
-                drink_type: drinkType,
-            };
-            
-            const id = document.getElementById('game-id').value;
-            
-            if (id) {
-                // Edit
-                await fetch(`/api/die/games/${id}?session_id=${window.sessionId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                closeModal('game-modal');
-                loadData();
-            } else {
-                // Add
-                const res = await fetch(`/api/die/games?session_id=${window.sessionId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
-                if (!res.ok) {
-                    console.error('Failed to save game:', await res.text());
-                    alert('Error saving game. Please try again.');
-                    return;
+            try {
+                let drinkType = document.getElementById('drink-type').value;
+                if (drinkType === 'other') {
+                    drinkType = document.getElementById('other-drink-input').value.trim();
                 }
                 
-                const result = await res.json();
+                const data = {
+                    team_a_player_1: document.getElementById('a-p1').value,
+                    team_a_player_2: document.getElementById('a-p2').value,
+                    team_b_player_1: document.getElementById('b-p1').value,
+                    team_b_player_2: document.getElementById('b-p2').value,
+                    winning_team: document.getElementById('winner').value,
+                    score_type: document.getElementById('score-type').value,
+                    winner_remaining: document.getElementById('remaining').value,
+                    drink_type: drinkType,
+                };
                 
-                if (result.duplicate) {
-                    window.pendingGameData = data;
-                    document.getElementById('duplicate-details').innerHTML = `
-                        Teams: ${result.game.team_a_player_1} & ${result.game.team_a_player_2} vs ${result.game.team_b_player_1} & ${result.game.team_b_player_2}<br>
-                        Winner: Team ${result.game.winning_team} (${result.game.winner_remaining} ${result.game.score_type})<br>
-                        Time: ${new Date(result.game.timestamp).toLocaleString()}
-                    `;
-                    document.getElementById('duplicate-modal').style.display = 'flex';
-                } else {
+                const id = document.getElementById('game-id').value;
+                
+                if (id) {
+                    // Edit
+                    await fetch(`/api/die/games/${id}?session_id=${window.sessionId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
                     closeModal('game-modal');
                     loadData();
+                } else {
+                    // Add
+                    const res = await fetch(`/api/die/games?session_id=${window.sessionId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (!res.ok) {
+                        console.error('Failed to save game:', await res.text());
+                        alert('Error saving game. Please try again.');
+                        return;
+                    }
+                    
+                    const result = await res.json();
+                    
+                    if (result.duplicate) {
+                        window.pendingGameData = data;
+                        document.getElementById('duplicate-details').innerHTML = `
+                            Teams: ${result.game.team_a_player_1} & ${result.game.team_a_player_2} vs ${result.game.team_b_player_1} & ${result.game.team_b_player_2}<br>
+                            Winner: Team ${result.game.winning_team} (${result.game.winner_remaining} ${result.game.score_type})<br>
+                            Time: ${new Date(result.game.timestamp).toLocaleString()}
+                        `;
+                        document.getElementById('duplicate-modal').style.display = 'flex';
+                    } else {
+                        closeModal('game-modal');
+                        loadData();
+                    }
                 }
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Game';
             }
         }
 
         async function forceSubmitGame() {
             if (!window.pendingGameData) return;
-            window.pendingGameData.force_submit = true;
             
-            await fetch(`/api/die/games?session_id=${window.sessionId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(window.pendingGameData)
-            });
+            const forceBtn = document.getElementById('force-submit-btn');
+            forceBtn.disabled = true;
+            forceBtn.textContent = 'Saving...';
             
-            closeModal('duplicate-modal');
-            closeModal('game-modal');
-            loadData();
+            try {
+                window.pendingGameData.force_submit = true;
+                
+                await fetch(`/api/die/games?session_id=${window.sessionId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(window.pendingGameData)
+                });
+                
+                closeModal('duplicate-modal');
+                closeModal('game-modal');
+                loadData();
+            } finally {
+                forceBtn.disabled = false;
+                forceBtn.textContent = 'Yes, Log It';
+            }
         }
 
         async function deleteGame(id) {
@@ -708,6 +733,32 @@
                 label.textContent = 'Remaining Quarters';
             }
         });
+
+        async function recalculateStats() {
+            if (!confirm('Are you sure you want to completely recalculate all player stats from the game ledger? This may take a few seconds.')) return;
+            
+            const btn = document.getElementById('recalc-btn');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '🔄...';
+            }
+            
+            try {
+                const res = await fetch(`/api/die/recalculate?session_id=${window.sessionId}`, { method: 'POST' });
+                if (!res.ok) throw new Error('Failed to recalculate');
+                
+                alert('Stats successfully recalculated!');
+                loadData();
+            } catch (e) {
+                console.error(e);
+                alert('Error recalculating stats.');
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '🔄 Recalculate';
+                }
+            }
+        }
     </script>
 </body>
 </html>
