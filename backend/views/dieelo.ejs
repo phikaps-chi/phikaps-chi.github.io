@@ -361,6 +361,7 @@
                     <select class="form-control" id="drink-type" required onchange="toggleOtherDrink()">
                         <option value="beer">Beer</option>
                         <option value="wine">Wine</option>
+                        <option value="water">Water</option>
                         <option value="other">Other</option>
                     </select>
                 </div>
@@ -390,14 +391,15 @@
                     <li style="margin-bottom: 0.4rem;"><strong>Win Probability:</strong> The system calculates the expected probability of winning based on the ELO difference: <br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">P(Win) = 1 / (1 + 10^((OpponentELO - YourELO) / 400))</code></li>
                     <li style="margin-bottom: 0.4rem;"><strong>The K-Factor (Stakes):</strong> This determines the maximum possible points you can win or lose in a single game.
                         <ul style="margin-left: 1.5rem; margin-top: 0.2rem;">
-                            <li><strong>Quarters:</strong> Base K = 32</li>
-                            <li><strong>Halves:</strong> Base K = 48 (1.5x multiplier)</li>
+                            <li><strong>Quarters:</strong> Base K = 48</li>
+                            <li><strong>Halves:</strong> Base K = 72 (1.5x multiplier)</li>
                         </ul>
                     </li>
                     <li style="margin-bottom: 0.4rem;"><strong>Margin of Victory:</strong> The more halves/quarters you win by, the bigger the points swing. For every additional point remaining beyond 1, the ELO swing increases by <strong>20%</strong>.</li>
-                    <li style="margin-bottom: 0.4rem;"><strong>The Point Swing:</strong> The actual points gained or lost is calculated as:<br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">Point Swing = K * MarginMultiplier * (Outcome - P(Win))</code><br><em style="opacity: 0.8; font-size: 0.8rem;">(Where Outcome is 1 for a win and 0 for a loss)</em></li>
+                    <li style="margin-bottom: 0.4rem;"><strong>Drink Modifier:</strong> To limit ELO farming, playing with Water reduces the stakes by <strong>85%</strong> (0.15x multiplier).</li>
+                    <li style="margin-bottom: 0.4rem;"><strong>The Point Swing:</strong> The actual points gained or lost is calculated as:<br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">Point Swing = K * MarginMultiplier * DrinkMultiplier * (Outcome - P(Win))</code><br><em style="opacity: 0.8; font-size: 0.8rem;">(Where Outcome is 1 for a win and 0 for a loss)</em></li>
                 </ul>
-                <p style="background: rgba(255, 215, 0, 0.1); padding: 0.8rem; border-radius: 8px; border-left: 3px solid #ffd700;"><strong>TL;DR:</strong> Beating a team with a much higher ELO than yours (an upset) will reward you with significantly more points than beating a lower-rated team. Playing with Halves increases the stakes by 50%, and winning by a larger margin boosts your points even more.</p>
+                <p style="background: rgba(255, 215, 0, 0.1); padding: 0.8rem; border-radius: 8px; border-left: 3px solid #ffd700;"><strong>TL;DR:</strong> Beating a team with a much higher ELO than yours (an upset) will reward you with significantly more points than beating a lower-rated team. Playing with Halves increases the stakes by 50%, winning by a larger margin boosts your points even more, but playing with Water cuts your points by 85%.</p>
             </div>
             <div style="text-align: right;">
                 <button class="btn" onclick="closeModal('info-modal')">Got it</button>
@@ -602,7 +604,7 @@
             const drinkTypeSelect = document.getElementById('drink-type');
             const otherInput = document.getElementById('other-drink-input');
             
-            if (g.drink_type === 'beer' || g.drink_type === 'wine') {
+            if (g.drink_type === 'beer' || g.drink_type === 'wine' || g.drink_type === 'water') {
                 drinkTypeSelect.value = g.drink_type;
                 otherInput.value = '';
             } else {

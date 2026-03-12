@@ -68,14 +68,19 @@ async function getGameHistory(userName) {
 }
 
 // ELO Calculation
-function calculateElo(teamAElo, teamBElo, winner, scoreType, winnerRemaining) {
-  const K_BASE = 32;
+function calculateElo(teamAElo, teamBElo, winner, scoreType, winnerRemaining, drinkType) {
+  const K_BASE = 48;
   let K = scoreType && scoreType.toLowerCase() === 'halves' ? K_BASE * 1.5 : K_BASE;
   
   // Margin of Victory Multiplier (+20% for each extra point beyond 1)
   const remaining = Math.max(1, Number(winnerRemaining) || 1);
   const movMultiplier = 1 + (remaining - 1) * 0.2;
   K = K * movMultiplier;
+  
+  // Drink Modifier (Water = 85% penalty)
+  if (drinkType && drinkType.toLowerCase().includes('water')) {
+    K = K * 0.15;
+  }
   
   const expectedA = 1 / (1 + Math.pow(10, (teamBElo - teamAElo) / 400));
   const expectedB = 1 / (1 + Math.pow(10, (teamAElo - teamBElo) / 400));
@@ -138,7 +143,7 @@ async function recalculateAllStats() {
     const teamBElo = ((pB1 ? pB1.elo : 1000) + (pB2 ? pB2.elo : 1000)) / ( (pB1?1:0) + (pB2?1:0) || 1 );
     
     const remaining = parseInt(g.winner_remaining) || 1;
-    const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining);
+    const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining, g.drink_type);
     
     const updatePlayer = (p, isTeamA) => {
       if (!p) return;
