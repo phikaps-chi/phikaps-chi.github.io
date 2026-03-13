@@ -264,6 +264,13 @@
             </div>
         </div>
 
+        <div class="card" id="pending-disputes-card" style="display: none; border-color: #ff9900;">
+            <h2 style="color: #ff9900; border-bottom-color: rgba(255, 153, 0, 0.3);">Pending Disputes</h2>
+            <div id="pending-disputes-container">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
         <div class="card">
             <h2>My History</h2>
             <div id="history-container">
@@ -423,11 +430,76 @@
                 <h3 style="color: #ffd700; font-size: 1rem; margin-top: 1rem; margin-bottom: 0.4rem;">3. The Duplicate Warning</h3>
                 <p style="margin-bottom: 0.8rem;">To prevent people from double-logging the same game, the system checks if a game with the exact same players and score was logged in the last 2 hours. If it detects a match, it will show you a <strong>Duplicate Warning</strong>. If you actually just played a rematch with the exact same result, you can click "Yes, Log It" to force the submission.</p>
 
-                <h3 style="color: #ffd700; font-size: 1rem; margin-top: 1rem; margin-bottom: 0.4rem;">4. Editing and Deleting</h3>
-                <p style="margin-bottom: 0.8rem;">Made a mistake or want to dispute a result? No problem. In the <strong>My History</strong> section, you can click "Edit" or "Delete" on any game you've played in. The system will automatically recalculate everyone's ELO from scratch to ensure the rankings are perfectly accurate.</p>
+                <h3 style="color: #ffd700; font-size: 1rem; margin-top: 1rem; margin-bottom: 0.4rem;">4. Editing a Game</h3>
+                <p style="margin-bottom: 0.8rem;">Made a mistake logging a game? Any of the <strong>4 players</strong> involved can edit it within <strong>2 minutes</strong> of its creation. Just click the green <strong>"Edit"</strong> button that appears next to the game in <strong>My History</strong>. After 2 minutes, the Edit button disappears and changes must go through the dispute process instead.</p>
+
+                <h3 style="color: #ffd700; font-size: 1rem; margin-top: 1rem; margin-bottom: 0.4rem;">5. Disputes</h3>
+                <p style="margin-bottom: 0.8rem;">Think a game result is wrong? In <strong>My History</strong>, click the <strong>"Dispute"</strong> button on the game in question. You can propose an <strong>edit</strong> (change the winner, score, or drink) or propose a <strong>deletion</strong>.</p>
+                <p style="margin-bottom: 0.8rem;"><strong>Important:</strong> While a dispute is pending, <strong>all 4 players</strong> in that game will have their ELO set to <strong>0</strong> until it is resolved.</p>
+                <p style="margin-bottom: 0.8rem;">A player from the <strong>opposing team</strong> will see the dispute in a <strong>"Pending Disputes"</strong> section and can <strong>Accept</strong> or <strong>Reject</strong> it. Once resolved, all ELOs are recalculated from scratch.</p>
             </div>
             <div style="text-align: right;">
                 <button class="btn" onclick="closeModal('tutorial-modal')">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dispute Modal -->
+    <div class="modal-overlay" id="dispute-modal">
+        <div class="modal">
+            <h2 id="dispute-modal-title">Dispute This Game</h2>
+            <input type="hidden" id="dispute-game-id">
+            <input type="hidden" id="dispute-type" value="edit">
+
+            <div id="dispute-original-summary" style="background: rgba(255,255,255,0.05); padding: 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem;"></div>
+
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                <button class="btn btn-small" id="dispute-edit-tab" onclick="setDisputeType('edit')" style="flex:1;">Propose Edit</button>
+                <button class="btn btn-small btn-danger" id="dispute-delete-tab" onclick="setDisputeType('delete')" style="flex:1;">Propose Deletion</button>
+            </div>
+
+            <div id="dispute-edit-fields">
+                <div class="form-group">
+                    <label>Winning Team</label>
+                    <select class="form-control" id="dispute-winner">
+                        <option value="A">Team A</option>
+                        <option value="B">Team B</option>
+                    </select>
+                </div>
+                <div class="score-container" style="display: flex; gap: 1rem;">
+                    <div class="form-group" style="flex: 1;">
+                        <label>Game Type</label>
+                        <select class="form-control" id="dispute-score-type">
+                            <option value="halves">Halves</option>
+                            <option value="quarters">Quarters</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label>Remaining</label>
+                        <input type="number" class="form-control" id="dispute-remaining" min="1" max="10">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Drink</label>
+                    <select class="form-control" id="dispute-drink-type">
+                        <option value="beer">Beer</option>
+                        <option value="wine">Wine</option>
+                        <option value="water">Water</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="dispute-delete-confirm" style="display: none; text-align: center; padding: 1rem; background: rgba(255, 68, 68, 0.1); border: 1px solid #ff4444; border-radius: 8px; margin-bottom: 1rem;">
+                <p style="color: #ff4444; font-weight: 600;">You are requesting this game be deleted.</p>
+                <p style="font-size: 0.85rem; opacity: 0.8; margin-top: 0.5rem;">A player from the opposing team must approve this action.</p>
+            </div>
+
+            <p style="font-size: 0.8rem; opacity: 0.7; margin-bottom: 1rem;">⚠️ While the dispute is pending, all 4 players in this game will have their ELO set to 0. A player from the opposing team must accept or reject it.</p>
+
+            <div class="flex-between" style="margin-top: 1rem;">
+                <button class="btn btn-danger" onclick="closeModal('dispute-modal')">Cancel</button>
+                <button class="btn" id="submit-dispute-btn" onclick="submitDispute()">Submit Dispute</button>
             </div>
         </div>
     </div>
@@ -452,22 +524,27 @@
 
         async function loadData() {
             try {
-                const [statsRes, gamesRes] = await Promise.all([
+                const [statsRes, gamesRes, disputesRes] = await Promise.all([
                     fetch(`/api/die/stats?session_id=${window.sessionId}`),
-                    fetch(`/api/die/games?session_id=${window.sessionId}`)
+                    fetch(`/api/die/games?session_id=${window.sessionId}`),
+                    fetch(`/api/die/disputes?session_id=${window.sessionId}`)
                 ]);
                 
                 const stats = await statsRes.json();
                 const games = await gamesRes.json();
+                const disputes = await disputesRes.json();
                 
                 if (stats.error || stats.message) {
                     console.error('Stats error:', stats);
                     return;
                 }
                 
+                window.allDisputes = Array.isArray(disputes) ? disputes : [];
+                
                 renderProfile(stats);
                 renderRankings(stats);
-                renderHistory(games);
+                renderHistory(games, window.allDisputes);
+                renderPendingDisputes(games, window.allDisputes);
                 
                 document.getElementById('profile-loader').style.display = 'none';
                 document.getElementById('profile-content').style.display = 'grid';
@@ -500,14 +577,16 @@
                 const l = parseInt(s.losses || 0);
                 const total = w + l;
                 const pct = total > 0 ? Math.round((w / total) * 100) : 0;
+                const isDisputed = s.rank === '-' || String(s.ELO) === '0';
                 
                 const tr = document.createElement('tr');
                 if (s.player_name === window.myName) tr.style.background = 'rgba(255, 215, 0, 0.1)';
+                if (isDisputed) tr.style.opacity = '0.4';
                 
                 tr.innerHTML = `
-                    <td>${s.rank}</td>
-                    <td>${s.player_name}</td>
-                    <td><strong>${s.ELO}</strong></td>
+                    <td>${isDisputed ? '⚠️' : s.rank}</td>
+                    <td>${s.player_name}${isDisputed ? ' <span style="font-size:0.7rem;color:#ff9900;">(disputed)</span>' : ''}</td>
+                    <td><strong>${isDisputed ? '0' : s.ELO}</strong></td>
                     <td>${w}-${l}</td>
                     <td>${pct}%</td>
                     <td>${s.games_played}</td>
@@ -516,28 +595,56 @@
             });
         }
 
-        function renderHistory(games) {
+        window._editTimers = [];
+
+        function renderHistory(games, disputes) {
             const container = document.getElementById('history-container');
             container.innerHTML = '';
+            window._editTimers.forEach(t => clearTimeout(t));
+            window._editTimers = [];
             
             if (!games || games.length === 0) {
                 container.innerHTML = '<p style="text-align:center; opacity:0.6; padding: 1rem;">No games logged yet.</p>';
                 return;
             }
             
-            // Sort by newest first
+            disputes = disputes || [];
+            const pendingDisputeGameIds = new Set(disputes.filter(d => d.status === 'pending').map(d => d.game_id));
+            
             games.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            games.forEach((g, index) => {
+            games.forEach((g) => {
                 const date = new Date(g.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                 
                 const isA = g.winning_team === 'A';
                 const teamA = `${g.team_a_player_1 || '?'} & ${g.team_a_player_2 || '?'}`;
                 const teamB = `${g.team_b_player_1 || '?'} & ${g.team_b_player_2 || '?'}`;
-                const isLatest = index === 0;
+                const hasPendingDispute = pendingDisputeGameIds.has(g.game_id);
                 
                 const card = document.createElement('div');
                 card.className = 'match-card';
+                if (hasPendingDispute) card.style.borderColor = '#ff9900';
+                
+                const elapsed = Date.now() - new Date(g.timestamp).getTime();
+                const editable = elapsed < 120000;
+                
+                let actionHtml;
+                if (hasPendingDispute) {
+                    actionHtml = '<span style="background:rgba(255,153,0,0.15);color:#ff9900;padding:0.3rem 0.6rem;border-radius:12px;font-size:0.8rem;font-weight:600;border:1px solid #ff9900;">⏳ Dispute Pending</span>';
+                } else {
+                    let editBtnHtml = '';
+                    if (editable) {
+                        const editId = 'edit-btn-' + g.game_id;
+                        editBtnHtml = `<button id="${editId}" class="btn btn-small" style="background:rgba(0,200,100,0.1);border:1px solid #00c864;color:#00c864;" onclick='editGame(${JSON.stringify(g).replace(/'/g, "&#39;")})'>Edit</button>`;
+                        const remaining = 120000 - elapsed;
+                        const timer = setTimeout(() => {
+                            const btn = document.getElementById(editId);
+                            if (btn) btn.remove();
+                        }, remaining);
+                        window._editTimers.push(timer);
+                    }
+                    actionHtml = editBtnHtml + `<button class="btn btn-small" style="background:rgba(255,153,0,0.1);border:1px solid #ff9900;color:#ff9900;" onclick='disputeGame(${JSON.stringify(g).replace(/'/g, "&#39;")})'>Dispute</button>`;
+                }
                 
                 card.innerHTML = `
                     <div class="match-header">
@@ -560,10 +667,7 @@
                             ${!isA ? `<div class="match-score">${g.winner_remaining} ${g.score_type} Remaining</div>` : ''}
                         </div>
                     </div>
-                    <div class="match-actions">
-                        ${isLatest ? `<button class="btn btn-small" onclick='editGame(${JSON.stringify(g).replace(/'/g, "&#39;")})'>Edit</button>` : ''}
-                        ${isLatest ? `<button class="btn btn-small btn-danger" onclick="deleteGame('${g.game_id}')">Delete</button>` : ''}
-                    </div>
+                    <div class="match-actions">${actionHtml}</div>
                 `;
                 container.appendChild(card);
             });
@@ -573,6 +677,7 @@
             document.getElementById('game-form').reset();
             document.getElementById('game-id').value = '';
             document.getElementById('modal-title').textContent = 'Log a Game';
+            document.getElementById('save-game-btn').textContent = 'Save Game';
             document.getElementById('other-drink-group').style.display = 'none';
             document.getElementById('game-modal').style.display = 'flex';
         }
@@ -592,30 +697,210 @@
             }
         }
 
+        function disputeGame(g) {
+            document.getElementById('dispute-game-id').value = g.game_id;
+            
+            const teamA = `${g.team_a_player_1 || '?'} & ${g.team_a_player_2 || '?'}`;
+            const teamB = `${g.team_b_player_1 || '?'} & ${g.team_b_player_2 || '?'}`;
+            const winnerLabel = g.winning_team === 'A' ? teamA : teamB;
+            document.getElementById('dispute-original-summary').innerHTML = `
+                <strong style="color:#ffd700;">Original Game</strong><br>
+                <span style="opacity:0.9;">Team A:</span> ${teamA}<br>
+                <span style="opacity:0.9;">Team B:</span> ${teamB}<br>
+                <span style="opacity:0.9;">Winner:</span> Team ${g.winning_team} (${winnerLabel})<br>
+                <span style="opacity:0.9;">Score:</span> ${g.winner_remaining} ${g.score_type} remaining &middot; ${(g.drink_type || 'beer').toUpperCase()}
+            `;
+            
+            document.getElementById('dispute-winner').value = g.winning_team;
+            document.getElementById('dispute-score-type').value = g.score_type;
+            document.getElementById('dispute-remaining').value = g.winner_remaining;
+            document.getElementById('dispute-drink-type').value = 
+                ['beer','wine','water','other'].includes(g.drink_type) ? g.drink_type : 'other';
+            
+            setDisputeType('edit');
+            document.getElementById('dispute-modal').style.display = 'flex';
+        }
+
         function editGame(g) {
+            document.getElementById('game-form').reset();
             document.getElementById('game-id').value = g.game_id;
-            document.getElementById('a-p1').value = g.team_a_player_1;
-            document.getElementById('a-p2').value = g.team_a_player_2;
-            document.getElementById('b-p1').value = g.team_b_player_1;
-            document.getElementById('b-p2').value = g.team_b_player_2;
-            document.getElementById('winner').value = g.winning_team;
-            document.getElementById('score-type').value = g.score_type;
-            document.getElementById('remaining').value = g.winner_remaining;
-            
-            const drinkTypeSelect = document.getElementById('drink-type');
-            const otherInput = document.getElementById('other-drink-input');
-            
-            if (g.drink_type === 'beer' || g.drink_type === 'wine' || g.drink_type === 'water') {
-                drinkTypeSelect.value = g.drink_type;
-                otherInput.value = '';
+            document.getElementById('modal-title').textContent = 'Edit Game';
+            document.getElementById('save-game-btn').textContent = 'Save Changes';
+            document.getElementById('a-p1').value = g.team_a_player_1 || '';
+            document.getElementById('a-p2').value = g.team_a_player_2 || '';
+            document.getElementById('b-p1').value = g.team_b_player_1 || '';
+            document.getElementById('b-p2').value = g.team_b_player_2 || '';
+            document.getElementById('winner').value = g.winning_team || 'A';
+            document.getElementById('score-type').value = g.score_type || 'halves';
+            document.getElementById('remaining').value = g.winner_remaining || '';
+            const drink = (g.drink_type || 'beer').toLowerCase();
+            if (['beer', 'wine', 'water', 'other'].includes(drink)) {
+                document.getElementById('drink-type').value = drink;
             } else {
-                drinkTypeSelect.value = 'other';
-                otherInput.value = g.drink_type;
+                document.getElementById('drink-type').value = 'other';
+                document.getElementById('other-drink-input').value = g.drink_type || '';
+                document.getElementById('other-drink-group').style.display = 'block';
             }
             toggleOtherDrink();
-            
-            document.getElementById('modal-title').textContent = 'Edit Game';
             document.getElementById('game-modal').style.display = 'flex';
+        }
+
+        function setDisputeType(type) {
+            document.getElementById('dispute-type').value = type;
+            const editFields = document.getElementById('dispute-edit-fields');
+            const deleteConfirm = document.getElementById('dispute-delete-confirm');
+            const editTab = document.getElementById('dispute-edit-tab');
+            const deleteTab = document.getElementById('dispute-delete-tab');
+            
+            if (type === 'edit') {
+                editFields.style.display = 'block';
+                deleteConfirm.style.display = 'none';
+                editTab.style.background = '#ffd700';
+                editTab.style.color = '#1a1a1a';
+                editTab.style.border = 'none';
+                deleteTab.style.background = 'transparent';
+                deleteTab.style.color = '#ff4444';
+                deleteTab.style.border = '1px solid #ff4444';
+            } else {
+                editFields.style.display = 'none';
+                deleteConfirm.style.display = 'block';
+                editTab.style.background = 'rgba(255,215,0,0.1)';
+                editTab.style.color = '#ffd700';
+                editTab.style.border = '1px solid #ffd700';
+                deleteTab.style.background = '#ff4444';
+                deleteTab.style.color = 'white';
+                deleteTab.style.border = 'none';
+            }
+        }
+
+        async function submitDispute() {
+            const btn = document.getElementById('submit-dispute-btn');
+            btn.disabled = true;
+            btn.textContent = 'Submitting...';
+            
+            try {
+                const disputeType = document.getElementById('dispute-type').value;
+                const payload = {
+                    game_id: document.getElementById('dispute-game-id').value,
+                    dispute_type: disputeType,
+                };
+                
+                if (disputeType === 'edit') {
+                    payload.winning_team = document.getElementById('dispute-winner').value;
+                    payload.score_type = document.getElementById('dispute-score-type').value;
+                    payload.winner_remaining = document.getElementById('dispute-remaining').value;
+                    payload.drink_type = document.getElementById('dispute-drink-type').value;
+                }
+                
+                const res = await fetch(`/api/die/disputes?session_id=${window.sessionId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await res.json();
+                if (!res.ok) {
+                    alert(result.error || 'Failed to submit dispute');
+                    return;
+                }
+                
+                closeModal('dispute-modal');
+                loadData();
+            } catch (e) {
+                console.error(e);
+                alert('Error submitting dispute.');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Submit Dispute';
+            }
+        }
+
+        async function resolveDisputeAction(disputeId, resolution) {
+            if (!confirm(`Are you sure you want to ${resolution === 'accepted' ? 'ACCEPT' : 'REJECT'} this dispute?`)) return;
+            
+            try {
+                const res = await fetch(`/api/die/disputes/${disputeId}/resolve?session_id=${window.sessionId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ resolution })
+                });
+                
+                const result = await res.json();
+                if (!res.ok) {
+                    alert(result.error || 'Failed to resolve dispute');
+                    return;
+                }
+                
+                loadData();
+            } catch (e) {
+                console.error(e);
+                alert('Error resolving dispute.');
+            }
+        }
+
+        function renderPendingDisputes(games, disputes) {
+            const container = document.getElementById('pending-disputes-container');
+            const card = document.getElementById('pending-disputes-card');
+            container.innerHTML = '';
+            
+            const pending = (disputes || []).filter(d => d.status === 'pending');
+            
+            const myActionable = pending.filter(d => {
+                const gameData = (games || []).find(g => g.game_id === d.game_id);
+                if (!gameData) return false;
+                const opposingTeam = d.disputer_team === 'A' ? 'B' : 'A';
+                const opposingPlayers = opposingTeam === 'A'
+                    ? [gameData.team_a_player_1, gameData.team_a_player_2]
+                    : [gameData.team_b_player_1, gameData.team_b_player_2];
+                return opposingPlayers.includes(window.myName);
+            });
+            
+            if (myActionable.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+            
+            card.style.display = 'block';
+            
+            myActionable.forEach(d => {
+                const gameData = (games || []).find(g => g.game_id === d.game_id);
+                
+                const div = document.createElement('div');
+                div.style.cssText = 'background:rgba(255,153,0,0.05);border:1px solid rgba(255,153,0,0.3);border-radius:10px;padding:1rem;margin-bottom:1rem;';
+                
+                let originalInfo = '';
+                if (gameData) {
+                    const teamA = `${gameData.team_a_player_1 || '?'} & ${gameData.team_a_player_2 || '?'}`;
+                    const teamB = `${gameData.team_b_player_1 || '?'} & ${gameData.team_b_player_2 || '?'}`;
+                    originalInfo = `<div style="font-size:0.85rem;margin-bottom:0.5rem;">
+                        <strong>Game:</strong> ${teamA} vs ${teamB}<br>
+                        <strong>Result:</strong> Team ${gameData.winning_team} won &middot; ${gameData.winner_remaining} ${gameData.score_type} &middot; ${(gameData.drink_type || 'beer').toUpperCase()}
+                    </div>`;
+                }
+                
+                let proposedInfo = '';
+                if (d.dispute_type === 'delete') {
+                    proposedInfo = '<div style="color:#ff4444;font-weight:600;font-size:0.9rem;">🗑️ Requesting game deletion</div>';
+                } else {
+                    proposedInfo = `<div style="font-size:0.85rem;color:#ff9900;">
+                        <strong>Proposed:</strong> Team ${d.proposed_winning_team} wins &middot; ${d.proposed_winner_remaining} ${d.proposed_score_type} &middot; ${(d.proposed_drink_type || 'beer').toUpperCase()}
+                    </div>`;
+                }
+                
+                div.innerHTML = `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+                        <span style="font-weight:600;color:#ff9900;">Dispute by ${d.disputed_by} (Team ${d.disputer_team})</span>
+                        <span style="font-size:0.75rem;opacity:0.6;">${new Date(d.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    ${originalInfo}
+                    ${proposedInfo}
+                    <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem;">
+                        <button class="btn btn-small btn-danger" onclick="resolveDisputeAction('${d.dispute_id}', 'rejected')">Reject</button>
+                        <button class="btn btn-small" onclick="resolveDisputeAction('${d.dispute_id}', 'accepted')">Accept</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
         }
 
         function closeModal(id) {
@@ -626,8 +911,12 @@
             e.preventDefault();
             
             const submitBtn = document.getElementById('save-game-btn');
+            const originalText = submitBtn.textContent;
             submitBtn.disabled = true;
             submitBtn.textContent = 'Saving...';
+            
+            const gameId = document.getElementById('game-id').value;
+            const isEdit = !!gameId;
             
             try {
                 let drinkType = document.getElementById('drink-type').value;
@@ -646,19 +935,20 @@
                     drink_type: drinkType,
                 };
                 
-                const id = document.getElementById('game-id').value;
-                
-                if (id) {
-                    // Edit
-                    await fetch(`/api/die/games/${id}?session_id=${window.sessionId}`, {
+                if (isEdit) {
+                    const res = await fetch(`/api/die/games/${gameId}?session_id=${window.sessionId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
+                    const result = await res.json();
+                    if (!res.ok) {
+                        alert(result.error || 'Failed to update game');
+                        return;
+                    }
                     closeModal('game-modal');
                     loadData();
                 } else {
-                    // Add
                     const res = await fetch(`/api/die/games?session_id=${window.sessionId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -688,7 +978,7 @@
                 }
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.textContent = 'Save Game';
+                submitBtn.textContent = originalText;
             }
         }
 
@@ -717,15 +1007,20 @@
             }
         }
 
-        async function deleteGame(id) {
-            if (confirm('Are you sure you want to delete this game?')) {
-                await fetch(`/api/die/games/${id}?session_id=${window.sessionId}`, { method: 'DELETE' });
-                loadData();
-            }
-        }
 
         // Initial load
         loadData();
+
+        let pollInterval = setInterval(loadData, 60000);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                clearInterval(pollInterval);
+                pollInterval = null;
+            } else {
+                loadData();
+                pollInterval = setInterval(loadData, 60000);
+            }
+        });
 
         // Dynamic Remaining Label
         document.getElementById('score-type').addEventListener('change', function(e) {

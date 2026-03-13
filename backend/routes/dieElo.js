@@ -38,6 +38,15 @@ router.post('/games', async (req, res) => {
   }
 });
 
+router.put('/games/:id', async (req, res) => {
+  try {
+    const result = await dieElo.editGame(req.params.id, req.body, req.user.name || req.user.email);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/recalculate', async (req, res) => {
   try {
     if (!req.user.position || !req.user.position.includes('Chi')) {
@@ -50,18 +59,29 @@ router.post('/recalculate', async (req, res) => {
   }
 });
 
-router.put('/games/:id', async (req, res) => {
+// --- Dispute routes ---
+
+router.get('/disputes', async (req, res) => {
   try {
-    const result = await dieElo.editGame(req.params.id, req.body, req.user.email);
+    const disputes = await dieElo.getDisputes();
+    res.json(disputes);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/disputes', async (req, res) => {
+  try {
+    const result = await dieElo.createDispute(req.body.game_id, req.body, req.user.name || req.user.email);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-router.delete('/games/:id', async (req, res) => {
+router.post('/disputes/:id/resolve', async (req, res) => {
   try {
-    const result = await dieElo.deleteGame(req.params.id, req.user.email);
+    const result = await dieElo.resolveDispute(req.params.id, req.body.resolution, req.user.name || req.user.email);
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 
 const LEDGER_SHEET = 'Game Ledger';
 const STATS_SHEET = 'Player Stats';
+const DISPUTES_SHEET = 'Disputes';
 
 // Helper to get die spreadsheet data
 async function getDieSheetData(sheetName) {
@@ -29,6 +30,7 @@ async function getDieSheetData(sheetName) {
 function clearDieSheetCache() {
   cache.del(`dieSheetData_${LEDGER_SHEET}`);
   cache.del(`dieSheetData_${STATS_SHEET}`);
+  cache.del(`dieSheetData_${DISPUTES_SHEET}`);
 }
 
 async function getStats() {
@@ -163,10 +165,25 @@ async function recalculateAllStats() {
     updatePlayer(pB2, false);
   }
   
+  // Zero out ELO for players involved in pending disputes
+  const pendingDisputes = await getPendingDisputes();
+  const disputedPlayerNames = new Set();
+  for (const d of pendingDisputes) {
+    const gameRow = games.find(g => g.game_id === d.game_id);
+    if (gameRow) {
+      [gameRow.team_a_player_1, gameRow.team_a_player_2, gameRow.team_b_player_1, gameRow.team_b_player_2]
+        .filter(n => n && n.trim() !== '' && n !== 'FOH' && n !== 'Alumn')
+        .forEach(n => disputedPlayerNames.add(n));
+    }
+  }
+  for (const name of disputedPlayerNames) {
+    if (players[name]) players[name].elo = 0;
+  }
+
   // Convert players to array and sort by ELO descending to assign ranks
   const playersArray = Object.values(players).sort((a, b) => b.elo - a.elo);
   playersArray.forEach((p, i) => {
-    p.rank = i + 1;
+    p.rank = disputedPlayerNames.has(p.name) ? '-' : i + 1;
   });
   
   // Write back to STATS_SHEET
@@ -309,103 +326,228 @@ async function addGame(gameData, userEmail) {
   return { success: true, gameId };
 }
 
-async function editGame(gameId, gameData, userEmail) {
+async function editGame(gameId, gameData, userName) {
   clearDieSheetCache();
   const data = await getDieSheetData(LEDGER_SHEET);
   if (!data || data.length <= 1) throw new Error('No games found');
-  
-  const rowIndex = data.findIndex(row => row[0] === gameId);
+
+  const headers = data[0].map(h => (h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+  const rowIndex = data.findIndex((row, i) => i > 0 && row[0] === gameId);
   if (rowIndex === -1) throw new Error('Game not found');
-  
-  if (rowIndex !== data.length - 1) throw new Error('You can only edit the most recent game');
-  
-  const sheets = await getSheetsClient();
+
+  const game = {};
+  headers.forEach((h, i) => { game[h] = data[rowIndex][i] || ''; });
+
+  const players = [game.team_a_player_1, game.team_a_player_2, game.team_b_player_1, game.team_b_player_2];
+  if (!players.includes(userName)) {
+    throw new Error('Only players involved in this game can edit it');
+  }
+
+  const elapsed = Date.now() - new Date(game.timestamp).getTime();
+  if (elapsed > 120000) {
+    throw new Error('Edit window has expired (2 minutes)');
+  }
+
   const row = data[rowIndex];
-  
-  // Update fields
-  row[2] = gameData.team_a_player_1 !== undefined ? gameData.team_a_player_1 : row[2];
-  row[3] = gameData.team_a_player_2 !== undefined ? gameData.team_a_player_2 : row[3];
-  row[4] = gameData.team_b_player_1 !== undefined ? gameData.team_b_player_1 : row[4];
-  row[5] = gameData.team_b_player_2 !== undefined ? gameData.team_b_player_2 : row[5];
-  row[6] = gameData.winning_team !== undefined ? gameData.winning_team : row[6];
-  row[7] = gameData.score_type !== undefined ? gameData.score_type : row[7];
-  row[8] = gameData.winner_remaining !== undefined ? gameData.winner_remaining : row[8];
-  row[9] = gameData.drink_type !== undefined ? gameData.drink_type : row[9];
-  
-  const range = `${LEDGER_SHEET}!A${rowIndex + 1}:K${rowIndex + 1}`;
-  
-  try {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: config.dieSpreadsheetId,
-      range,
-      valueInputOption: 'USER_ENTERED',
-      resource: { values: [row] },
-    });
-  } catch (err) {
-    console.error('Error updating game in ledger:', err.message);
-    throw new Error('Failed to update game in ledger');
-  }
-  
+  const winIdx = headers.indexOf('winning_team');
+  const scoreIdx = headers.indexOf('score_type');
+  const remIdx = headers.indexOf('winner_remaining');
+  const drinkIdx = headers.indexOf('drink_type');
+
+  if (gameData.winning_team !== undefined) row[winIdx] = gameData.winning_team;
+  if (gameData.score_type !== undefined) row[scoreIdx] = gameData.score_type;
+  if (gameData.winner_remaining !== undefined) row[remIdx] = gameData.winner_remaining;
+  if (gameData.drink_type !== undefined) row[drinkIdx] = gameData.drink_type;
+
+  const sheets = await getSheetsClient();
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: config.dieSpreadsheetId,
+    range: `${LEDGER_SHEET}!A${rowIndex + 1}:K${rowIndex + 1}`,
+    valueInputOption: 'USER_ENTERED',
+    resource: { values: [row] },
+  });
+
   clearDieSheetCache();
-  
-  try {
-    await recalculateAllStats();
-  } catch (err) {
-    console.error('Error recalculating stats after edit:', err.message);
-  }
-  
+  try { await recalculateAllStats(); } catch (e) { console.error('Error recalculating after edit:', e.message); }
+
   return { success: true };
 }
 
-async function deleteGame(gameId, userEmail) {
-  const data = await getDieSheetData(LEDGER_SHEET);
-  if (!data || data.length <= 1) throw new Error('No games found');
-  
-  const rowIndex = data.findIndex(row => row[0] === gameId);
-  if (rowIndex === -1) throw new Error('Game not found');
-  
-  const sheets = await getSheetsClient();
-  
-  // Get sheetId for LEDGER_SHEET
-  const meta = await sheets.spreadsheets.get({
-    spreadsheetId: config.dieSpreadsheetId,
-    fields: 'sheets(properties(sheetId,title))',
+// --- Dispute System ---
+
+async function getDisputes() {
+  const data = await getDieSheetData(DISPUTES_SHEET);
+  if (!data || data.length <= 1) return [];
+
+  const headers = data[0].map(h => (h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+  return data.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = row[i] || '';
+    });
+    return obj;
   });
-  const sheetInfo = meta.data.sheets.find(s => s.properties.title === LEDGER_SHEET);
-  
-  if (sheetInfo) {
-    try {
-      await sheets.spreadsheets.batchUpdate({
+}
+
+async function getPendingDisputes() {
+  const all = await getDisputes();
+  return all.filter(d => d.status === 'pending');
+}
+
+async function createDispute(gameId, proposedData, disputedByName) {
+  clearDieSheetCache();
+  const ledger = await getDieSheetData(LEDGER_SHEET);
+  if (!ledger || ledger.length <= 1) throw new Error('No games found');
+
+  const headers = ledger[0].map(h => (h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+  const gameRow = ledger.slice(1).find(row => row[0] === gameId);
+  if (!gameRow) throw new Error('Game not found');
+
+  const game = {};
+  headers.forEach((h, i) => { game[h] = gameRow[i] || ''; });
+
+  let disputerTeam = '';
+  if (game.team_a_player_1 === disputedByName || game.team_a_player_2 === disputedByName) {
+    disputerTeam = 'A';
+  } else if (game.team_b_player_1 === disputedByName || game.team_b_player_2 === disputedByName) {
+    disputerTeam = 'B';
+  } else {
+    throw new Error('You are not a player in this game');
+  }
+
+  const pending = await getPendingDisputes();
+  if (pending.some(d => d.game_id === gameId)) {
+    throw new Error('A dispute is already pending for this game');
+  }
+
+  const sheets = await getSheetsClient();
+  const disputeId = uuidv4();
+  const timestamp = new Date().toISOString();
+  const disputeType = proposedData.dispute_type || 'edit';
+
+  const row = [
+    disputeId,
+    gameId,
+    timestamp,
+    disputedByName,
+    disputeType,
+    disputeType === 'edit' ? (proposedData.winning_team || '') : '',
+    disputeType === 'edit' ? (proposedData.score_type || '') : '',
+    disputeType === 'edit' ? (proposedData.winner_remaining || '') : '',
+    disputeType === 'edit' ? (proposedData.drink_type || '') : '',
+    'pending',
+    disputerTeam
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: config.dieSpreadsheetId,
+    range: DISPUTES_SHEET,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    resource: { values: [row] },
+  });
+
+  clearDieSheetCache();
+  try { await recalculateAllStats(); } catch (e) { console.error('Error recalculating after dispute creation:', e.message); }
+
+  return { success: true, disputeId };
+}
+
+async function resolveDispute(disputeId, resolution, resolverName) {
+  if (resolution !== 'accepted' && resolution !== 'rejected') {
+    throw new Error('Resolution must be "accepted" or "rejected"');
+  }
+
+  clearDieSheetCache();
+  const disputeData = await getDieSheetData(DISPUTES_SHEET);
+  if (!disputeData || disputeData.length <= 1) throw new Error('No disputes found');
+
+  const disputeHeaders = disputeData[0].map(h => (h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+  const disputeRowIndex = disputeData.findIndex((row, i) => i > 0 && row[0] === disputeId);
+  if (disputeRowIndex === -1) throw new Error('Dispute not found');
+
+  const dispute = {};
+  disputeHeaders.forEach((h, i) => { dispute[h] = disputeData[disputeRowIndex][i] || ''; });
+
+  if (dispute.status !== 'pending') throw new Error('This dispute has already been resolved');
+
+  const ledger = await getDieSheetData(LEDGER_SHEET);
+  if (!ledger || ledger.length <= 1) throw new Error('No games found');
+  const ledgerHeaders = ledger[0].map(h => (h || '').trim().toLowerCase().replace(/\s+/g, '_'));
+  const gameRowIndex = ledger.findIndex((row, i) => i > 0 && row[0] === dispute.game_id);
+  if (gameRowIndex === -1) throw new Error('Associated game not found');
+
+  const game = {};
+  ledgerHeaders.forEach((h, i) => { game[h] = ledger[gameRowIndex][i] || ''; });
+
+  const opposingTeam = dispute.disputer_team === 'A' ? 'B' : 'A';
+  const opposingPlayers = opposingTeam === 'A'
+    ? [game.team_a_player_1, game.team_a_player_2]
+    : [game.team_b_player_1, game.team_b_player_2];
+
+  if (!opposingPlayers.includes(resolverName)) {
+    throw new Error('Only a player from the opposing team can resolve this dispute');
+  }
+
+  const sheets = await getSheetsClient();
+
+  if (resolution === 'accepted') {
+    if (dispute.dispute_type === 'edit') {
+      const row = ledger[gameRowIndex];
+      const winIdx = ledgerHeaders.indexOf('winning_team');
+      const scoreIdx = ledgerHeaders.indexOf('score_type');
+      const remIdx = ledgerHeaders.indexOf('winner_remaining');
+      const drinkIdx = ledgerHeaders.indexOf('drink_type');
+
+      if (dispute.proposed_winning_team) row[winIdx] = dispute.proposed_winning_team;
+      if (dispute.proposed_score_type) row[scoreIdx] = dispute.proposed_score_type;
+      if (dispute.proposed_winner_remaining) row[remIdx] = dispute.proposed_winner_remaining;
+      if (dispute.proposed_drink_type) row[drinkIdx] = dispute.proposed_drink_type;
+
+      await sheets.spreadsheets.values.update({
         spreadsheetId: config.dieSpreadsheetId,
-        resource: {
-          requests: [
-            {
+        range: `${LEDGER_SHEET}!A${gameRowIndex + 1}:K${gameRowIndex + 1}`,
+        valueInputOption: 'USER_ENTERED',
+        resource: { values: [row] },
+      });
+    } else if (dispute.dispute_type === 'delete') {
+      const meta = await sheets.spreadsheets.get({
+        spreadsheetId: config.dieSpreadsheetId,
+        fields: 'sheets(properties(sheetId,title))',
+      });
+      const sheetInfo = meta.data.sheets.find(s => s.properties.title === LEDGER_SHEET);
+      if (sheetInfo) {
+        await sheets.spreadsheets.batchUpdate({
+          spreadsheetId: config.dieSpreadsheetId,
+          resource: {
+            requests: [{
               deleteDimension: {
                 range: {
                   sheetId: sheetInfo.properties.sheetId,
                   dimension: 'ROWS',
-                  startIndex: rowIndex,
-                  endIndex: rowIndex + 1
+                  startIndex: gameRowIndex,
+                  endIndex: gameRowIndex + 1
                 }
               }
-            }
-          ]
-        }
-      });
-    } catch (err) {
-      console.error('Error deleting game from ledger:', err.message);
-      throw new Error('Failed to delete game from ledger');
+            }]
+          }
+        });
+      }
     }
   }
-  
+
+  const statusColIndex = disputeHeaders.indexOf('status');
+  disputeData[disputeRowIndex][statusColIndex] = resolution;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: config.dieSpreadsheetId,
+    range: `${DISPUTES_SHEET}!A${disputeRowIndex + 1}:K${disputeRowIndex + 1}`,
+    valueInputOption: 'USER_ENTERED',
+    resource: { values: [disputeData[disputeRowIndex]] },
+  });
+
   clearDieSheetCache();
-  
-  try {
-    await recalculateAllStats();
-  } catch (err) {
-    console.error('Error recalculating stats after delete:', err.message);
-  }
-  
+  try { await recalculateAllStats(); } catch (e) { console.error('Error recalculating after dispute resolution:', e.message); }
+
   return { success: true };
 }
 
@@ -475,6 +617,8 @@ module.exports = {
   getGameHistory,
   addGame,
   editGame,
-  deleteGame,
   recalculateAllStats,
+  getDisputes,
+  createDispute,
+  resolveDispute,
 };
