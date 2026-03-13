@@ -310,11 +310,14 @@ async function addGame(gameData, userEmail) {
 }
 
 async function editGame(gameId, gameData, userEmail) {
+  clearDieSheetCache();
   const data = await getDieSheetData(LEDGER_SHEET);
   if (!data || data.length <= 1) throw new Error('No games found');
   
   const rowIndex = data.findIndex(row => row[0] === gameId);
   if (rowIndex === -1) throw new Error('Game not found');
+  
+  if (rowIndex !== data.length - 1) throw new Error('You can only edit the most recent game');
   
   const sheets = await getSheetsClient();
   const row = data[rowIndex];

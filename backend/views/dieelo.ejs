@@ -528,12 +528,13 @@
             // Sort by newest first
             games.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             
-            games.forEach(g => {
+            games.forEach((g, index) => {
                 const date = new Date(g.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
                 
                 const isA = g.winning_team === 'A';
                 const teamA = `${g.team_a_player_1 || '?'} & ${g.team_a_player_2 || '?'}`;
                 const teamB = `${g.team_b_player_1 || '?'} & ${g.team_b_player_2 || '?'}`;
+                const isLatest = index === 0;
                 
                 const card = document.createElement('div');
                 card.className = 'match-card';
@@ -560,8 +561,8 @@
                         </div>
                     </div>
                     <div class="match-actions">
-                        <button class="btn btn-small" onclick='editGame(${JSON.stringify(g).replace(/'/g, "&#39;")})'>Edit</button>
-                        <button class="btn btn-small btn-danger" onclick="deleteGame('${g.game_id}')">Delete</button>
+                        ${isLatest ? `<button class="btn btn-small" onclick='editGame(${JSON.stringify(g).replace(/'/g, "&#39;")})'>Edit</button>` : ''}
+                        ${isLatest ? `<button class="btn btn-small btn-danger" onclick="deleteGame('${g.game_id}')">Delete</button>` : ''}
                     </div>
                 `;
                 container.appendChild(card);
