@@ -95,6 +95,7 @@ function calculateElo(teamAElo, teamBElo, winner, scoreType, winnerRemaining, dr
 }
 
 async function recalculateAllStats() {
+  clearDieSheetCache();
   const ledger = await getDieSheetData(LEDGER_SHEET);
   if (!ledger || ledger.length <= 1) {
     // Clear stats if no games
