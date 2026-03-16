@@ -124,17 +124,22 @@ async function recalculateAllStats() {
   
   const players = {}; // name -> { elo, wins, losses, games_played }
   
+  const UNTRACKED_ELO = { 'Alumn': 1100, 'FOH': 900 };
+
   const getPlayer = (name) => {
-    // Treat empty strings as null
-    if (!name || name.trim() === '' || name === 'FOH' || name === 'Alumn') return null;
+    if (!name || name.trim() === '' || name in UNTRACKED_ELO) return null;
     if (!players[name]) {
       players[name] = { name, elo: 1000, wins: 0, losses: 0, games_played: 0 };
     }
     return players[name];
   };
+
+  const effectiveElo = (player, name) => {
+    if (player) return player.elo;
+    return UNTRACKED_ELO[name] ?? 1000;
+  };
   
   for (const g of games) {
-    // Skip games with invalid structure
     if (!g.winning_team || (g.winning_team !== 'A' && g.winning_team !== 'B')) continue;
 
     const pA1 = getPlayer(g.team_a_player_1);
@@ -142,8 +147,8 @@ async function recalculateAllStats() {
     const pB1 = getPlayer(g.team_b_player_1);
     const pB2 = getPlayer(g.team_b_player_2);
     
-    const teamAElo = ((pA1 ? pA1.elo : 1000) + (pA2 ? pA2.elo : 1000)) / ( (pA1?1:0) + (pA2?1:0) || 1 );
-    const teamBElo = ((pB1 ? pB1.elo : 1000) + (pB2 ? pB2.elo : 1000)) / ( (pB1?1:0) + (pB2?1:0) || 1 );
+    const teamAElo = (effectiveElo(pA1, g.team_a_player_1) + effectiveElo(pA2, g.team_a_player_2)) / ( (pA1?1:0) + (pA2?1:0) || 1 );
+    const teamBElo = (effectiveElo(pB1, g.team_b_player_1) + effectiveElo(pB2, g.team_b_player_2)) / ( (pB1?1:0) + (pB2?1:0) || 1 );
     
     const remaining = parseInt(g.winner_remaining) || 1;
     const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining, g.drink_type);

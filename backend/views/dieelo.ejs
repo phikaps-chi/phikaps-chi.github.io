@@ -393,8 +393,8 @@
             <div style="font-size: 0.9rem; line-height: 1.5; color: rgba(255,255,255,0.9); margin-bottom: 1.5rem;">
                 <p style="margin-bottom: 0.8rem;">The ranking system uses a modified version of the standard Chess ELO formula.</p>
                 <ul style="margin-left: 1.5rem; margin-bottom: 0.8rem;">
-                    <li style="margin-bottom: 0.4rem;"><strong>Base Rating:</strong> All new players start at <strong>1000 ELO</strong>.</li>
-                    <li style="margin-bottom: 0.4rem;"><strong>Team Rating:</strong> A team's ELO is the exact average of its two players' individual ELOs.</li>
+                    <li style="margin-bottom: 0.4rem;"><strong>Base Rating:</strong> All new players start at <strong>1000 ELO</strong>. Untracked placeholder players use a fixed phantom rating: <strong>Alumn = 1100</strong> and <strong>FOH = 900</strong>.</li>
+                    <li style="margin-bottom: 0.4rem;"><strong>Team Rating:</strong> A team's ELO is the exact average of its two players' individual ELOs. Untracked players (FOH / Alumn) contribute their phantom rating to this average.</li>
                     <li style="margin-bottom: 0.4rem;"><strong>Win Probability:</strong> The system calculates the expected probability of winning based on the ELO difference: <br><code style="background: rgba(0,0,0,0.5); padding: 2px 4px; border-radius: 4px; display: inline-block; margin-top: 4px; color: #ffd700;">P(Win) = 1 / (1 + 10^((OpponentELO - YourELO) / 400))</code></li>
                     <li style="margin-bottom: 0.4rem;"><strong>The K-Factor (Stakes):</strong> This determines the maximum possible points you can win or lose in a single game.
                         <ul style="margin-left: 1.5rem; margin-top: 0.2rem;">
@@ -425,7 +425,7 @@
                 <p style="margin-bottom: 0.8rem;">Click the big gold <strong>"+"</strong> button in the bottom right corner of the screen. Fill out the form with the players on Team A and Team B, select the winner, the game type (Halves or Quarters), how many halves/quarters were remaining, and what you were drinking.</p>
 
                 <h3 style="color: #ffd700; font-size: 1rem; margin-top: 1rem; margin-bottom: 0.4rem;">2. Non-House Players</h3>
-                <p style="margin-bottom: 0.8rem;">If you are playing with someone who isn't in the house dropdown, you can select <strong>"FOH"</strong> (Friend of House) or <strong>"Alumn"</strong>. These placeholder players do not have their own ELO tracked, but the system will still calculate the ELO change for the active house brothers based on the game.</p>
+                <p style="margin-bottom: 0.8rem;">If you are playing with someone who isn't in the house dropdown, you can select <strong>"FOH"</strong> (Friend of House) or <strong>"Alumn"</strong>. These placeholder players do not have their own ELO tracked, but they do carry a fixed phantom rating that affects ELO calculations: <strong>Alumn = 1100</strong> (above the 1000 starting ELO) and <strong>FOH = 900</strong> (below it). This means beating an Alumn rewards more points than beating a FOH, and losing to a FOH costs more points than losing to an Alumn.</p>
 
                 <h3 style="color: #ffd700; font-size: 1rem; margin-top: 1rem; margin-bottom: 0.4rem;">3. The Duplicate Warning</h3>
                 <p style="margin-bottom: 0.8rem;">To prevent people from double-logging the same game, the system checks if a game with the exact same players and score was logged in the last 2 hours. If it detects a match, it will show you a <strong>Duplicate Warning</strong>. If you actually just played a rematch with the exact same result, you can click "Yes, Log It" to force the submission.</p>
