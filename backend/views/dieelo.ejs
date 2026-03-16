@@ -1011,14 +1011,15 @@
         // Initial load
         loadData();
 
-        let pollInterval = setInterval(loadData, 60000);
+        if (window.pollInterval) clearInterval(window.pollInterval);
+        window.pollInterval = setInterval(loadData, 60000);
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                clearInterval(pollInterval);
-                pollInterval = null;
+                clearInterval(window.pollInterval);
+                window.pollInterval = null;
             } else {
                 loadData();
-                pollInterval = setInterval(loadData, 60000);
+                window.pollInterval = setInterval(loadData, 60000);
             }
         });
 
