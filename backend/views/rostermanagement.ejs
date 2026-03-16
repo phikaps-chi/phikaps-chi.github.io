@@ -1407,24 +1407,33 @@
                 }
             }
 
-            function refreshData() {
+            async function refreshData() {
                 if (hasChanges) {
                     if (!confirm('You have unsaved changes. Are you sure you want to refresh?')) {
                         return;
                     }
                 }
 
-                // Re-use the initial data if available, otherwise show error
-                if (window.preloadedRosterData && window.preloadedRosterData.length > 0) {
-                    originalData = JSON.parse(JSON.stringify(window.preloadedRosterData));
-                    currentData = JSON.parse(JSON.stringify(window.preloadedRosterData));
+                showStatus('Refreshing...', 'info');
+                try {
+                    const _baseUrl = (typeof BASE_URL !== 'undefined') ? BASE_URL : '';
+                    const _sid = (typeof SESSION_ID !== 'undefined') ? SESSION_ID : new URLSearchParams(window.location.search).get('session_id') || '';
+                    const res = await fetch(_baseUrl + '/api/roster/data?session_id=' + encodeURIComponent(_sid));
+                    if (!res.ok) throw new Error('Failed to fetch roster data');
+                    const freshData = await res.json();
+                    if (!freshData || freshData.length === 0) throw new Error('Empty roster');
+
+                    window.preloadedRosterData = freshData;
+                    originalData = JSON.parse(JSON.stringify(freshData));
+                    currentData = JSON.parse(JSON.stringify(freshData));
                     removedBrothers = [];
                     renderTable(currentData);
                     renderCards(currentData);
                     checkForChanges();
-                    showStatus('Data refreshed', 'success');
-                } else {
-                    showStatus('Unable to refresh data. Please reload the page.', 'error');
+                    showStatus(`Data refreshed — ${freshData.length} brothers`, 'success');
+                } catch (err) {
+                    console.error('Refresh error:', err);
+                    showStatus('Unable to refresh data: ' + err.message, 'error');
                 }
             }
 
