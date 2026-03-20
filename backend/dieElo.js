@@ -59,9 +59,45 @@ async function getGameHistory(userName) {
     });
     return obj;
   });
-  
-  // Filter for games involving the user
-  return games.filter(g => 
+
+  // Replay ELO history to attach per-player deltas
+  const sorted = [...games].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const elos = {};
+  const getElo = (name) => {
+    if (!name || name.trim() === '' || name === 'FOH' || name === 'Alumn') return null;
+    if (elos[name] === undefined) elos[name] = 1000;
+    return elos[name];
+  };
+
+  for (const g of sorted) {
+    if (!g.winning_team || (g.winning_team !== 'A' && g.winning_team !== 'B')) continue;
+
+    const eA1 = getElo(g.team_a_player_1);
+    const eA2 = getElo(g.team_a_player_2);
+    const eB1 = getElo(g.team_b_player_1);
+    const eB2 = getElo(g.team_b_player_2);
+
+    const cntA = (eA1 !== null ? 1 : 0) + (eA2 !== null ? 1 : 0);
+    const cntB = (eB1 !== null ? 1 : 0) + (eB2 !== null ? 1 : 0);
+    const teamAElo = ((eA1 || 1000) + (eA2 || 1000)) / (cntA || 1);
+    const teamBElo = ((eB1 || 1000) + (eB2 || 1000)) / (cntB || 1);
+
+    const remaining = parseInt(g.winner_remaining) || 1;
+    const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining, g.drink_type);
+
+    g.elo_deltas = {};
+    const apply = (name, delta) => {
+      if (!name || name.trim() === '' || name === 'FOH' || name === 'Alumn') return;
+      g.elo_deltas[name] = Math.round(delta);
+      elos[name] = (elos[name] || 1000) + delta;
+    };
+    apply(g.team_a_player_1, deltaA);
+    apply(g.team_a_player_2, deltaA);
+    apply(g.team_b_player_1, deltaB);
+    apply(g.team_b_player_2, deltaB);
+  }
+
+  return sorted.filter(g => 
     g.team_a_player_1 === userName ||
     g.team_a_player_2 === userName ||
     g.team_b_player_1 === userName ||
@@ -104,7 +140,7 @@ async function recalculateAllStats() {
     const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.clear({
       spreadsheetId: config.dieSpreadsheetId,
-      range: `${STATS_SHEET}!A2:F`,
+      range: `${STATS_SHEET}!A2:H`,
     });
     clearDieSheetCache();
     return;
@@ -122,14 +158,14 @@ async function recalculateAllStats() {
   // Sort games by timestamp ascending to replay history
   games.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   
-  const players = {}; // name -> { elo, wins, losses, games_played }
+  const players = {}; // name -> { elo, wins, losses, games_played, win_streak, max_win_streak }
   
   const UNTRACKED_ELO = { 'Alumn': 1100, 'FOH': 900 };
 
   const getPlayer = (name) => {
     if (!name || name.trim() === '' || name in UNTRACKED_ELO) return null;
     if (!players[name]) {
-      players[name] = { name, elo: 1000, wins: 0, losses: 0, games_played: 0 };
+      players[name] = { name, elo: 1000, wins: 0, losses: 0, games_played: 0, win_streak: 0, max_win_streak: 0 };
     }
     return players[name];
   };
@@ -156,10 +192,14 @@ async function recalculateAllStats() {
     const updatePlayer = (p, isTeamA) => {
       if (!p) return;
       p.games_played++;
-      if (g.winning_team === 'A') {
-        if (isTeamA) p.wins++; else p.losses++;
-      } else if (g.winning_team === 'B') {
-        if (!isTeamA) p.wins++; else p.losses++;
+      const won = (g.winning_team === 'A' && isTeamA) || (g.winning_team === 'B' && !isTeamA);
+      if (won) {
+        p.wins++;
+        p.win_streak++;
+        p.max_win_streak = Math.max(p.max_win_streak, p.win_streak);
+      } else {
+        p.losses++;
+        p.win_streak = 0;
       }
       p.elo += isTeamA ? deltaA : deltaB;
     };
@@ -194,7 +234,7 @@ async function recalculateAllStats() {
   // Write back to STATS_SHEET
   const sheets = await getSheetsClient();
   const statsData = [
-    ['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played']
+    ['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played', 'win_streak', 'max_win_streak']
   ];
   
   for (const p of playersArray) {
@@ -204,7 +244,9 @@ async function recalculateAllStats() {
       p.rank,
       p.wins,
       p.losses,
-      p.games_played
+      p.games_played,
+      p.win_streak || 0,
+      p.max_win_streak || 0
     ]);
   }
   
@@ -213,7 +255,7 @@ async function recalculateAllStats() {
     // Clear old stats first
     await sheets.spreadsheets.values.clear({
       spreadsheetId: config.dieSpreadsheetId,
-      range: `${STATS_SHEET}!A1:F`,
+      range: `${STATS_SHEET}!A1:H`,
     });
     
     await sheets.spreadsheets.values.update({
@@ -601,9 +643,9 @@ async function initDieSheets() {
       if (!existingTitles.includes(STATS_SHEET)) {
         await sheets.spreadsheets.values.update({
           spreadsheetId: config.dieSpreadsheetId,
-          range: `${STATS_SHEET}!A1:F1`,
+          range: `${STATS_SHEET}!A1:H1`,
           valueInputOption: 'USER_ENTERED',
-          resource: { values: [['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played']] }
+          resource: { values: [['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played', 'win_streak', 'max_win_streak']] }
         });
       }
     }

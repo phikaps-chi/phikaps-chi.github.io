@@ -240,6 +240,14 @@
                     <div class="stat-value" id="my-winpct">-</div>
                     <div class="stat-label">Win %</div>
                 </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="my-streak">-</div>
+                    <div class="stat-label">Win Streak</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="my-max-streak">-</div>
+                    <div class="stat-label">Max Win Streak</div>
+                </div>
             </div>
         </div>
 
@@ -255,6 +263,8 @@
                             <th>W-L</th>
                             <th>Win %</th>
                             <th>Games</th>
+                            <th>Win Streak</th>
+                            <th>Max Win Streak</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -556,6 +566,8 @@
         function renderProfile(stats) {
             const myStat = stats.find(s => s.player_name === window.myName);
             if (myStat) {
+                const winStreak = myStat.win_streak || '0';
+                const maxWinStreak = myStat.max_win_streak || '0';
                 document.getElementById('my-elo').textContent = myStat.ELO || '-';
                 document.getElementById('my-rank').textContent = myStat.rank ? `#${myStat.rank}` : '-';
                 document.getElementById('my-record').textContent = `${myStat.wins || 0} - ${myStat.losses || 0}`;
@@ -565,6 +577,8 @@
                 const total = w + l;
                 const pct = total > 0 ? Math.round((w / total) * 100) : 0;
                 document.getElementById('my-winpct').textContent = `${pct}%`;
+                document.getElementById('my-streak').textContent = winStreak;
+                document.getElementById('my-max-streak').textContent = maxWinStreak;
             }
         }
 
@@ -573,6 +587,8 @@
             tbody.innerHTML = '';
             
             stats.forEach(s => {
+                const winStreak = s.win_streak || 0;
+                const maxWinStreak = s.max_win_streak || 0;
                 const w = parseInt(s.wins || 0);
                 const l = parseInt(s.losses || 0);
                 const total = w + l;
@@ -590,6 +606,8 @@
                     <td>${w}-${l}</td>
                     <td>${pct}%</td>
                     <td>${s.games_played}</td>
+                    <td>${winStreak}</td>
+                    <td>${maxWinStreak}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -615,6 +633,7 @@
             
             games.forEach((g) => {
                 const date = new Date(g.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+                const myDelta = g.elo_deltas ? g.elo_deltas[window.myName] : null;
                 
                 const isA = g.winning_team === 'A';
                 const teamA = `${g.team_a_player_1 || '?'} & ${g.team_a_player_2 || '?'}`;
@@ -646,10 +665,17 @@
                     actionHtml = editBtnHtml + `<button class="btn btn-small" style="background:rgba(255,153,0,0.1);border:1px solid #ff9900;color:#ff9900;" onclick='disputeGame(${JSON.stringify(g).replace(/'/g, "&#39;")})'>Dispute</button>`;
                 }
                 
+                const deltaHtml = myDelta != null
+                    ? `<span style="font-size:0.8rem;font-weight:600;color:${myDelta >= 0 ? '#00c864' : '#ff4444'};">${myDelta >= 0 ? '+' : ''}${myDelta}</span>`
+                    : '';
+                
                 card.innerHTML = `
                     <div class="match-header">
                         <span>${date}</span>
-                        <span>${g.drink_type ? g.drink_type.toUpperCase() : 'BEER'}</span>
+                        <span style="display:flex;align-items:center;gap:0.5rem;">
+                            ${deltaHtml}
+                            <span>${g.drink_type ? g.drink_type.toUpperCase() : 'BEER'}</span>
+                        </span>
                     </div>
                     <div class="match-teams">
                         <div class="match-team ${isA ? 'winner' : ''}">
