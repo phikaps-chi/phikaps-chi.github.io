@@ -140,7 +140,7 @@ async function recalculateAllStats() {
     const sheets = await getSheetsClient();
     await sheets.spreadsheets.values.clear({
       spreadsheetId: config.dieSpreadsheetId,
-      range: `${STATS_SHEET}!A2:H`,
+      range: `${STATS_SHEET}!A2:I`,
     });
     clearDieSheetCache();
     return;
@@ -158,14 +158,14 @@ async function recalculateAllStats() {
   // Sort games by timestamp ascending to replay history
   games.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   
-  const players = {}; // name -> { elo, wins, losses, games_played, win_streak, max_win_streak }
+  const players = {}; // name -> { elo, wins, losses, games_played, win_streak, max_win_streak, last_game_elo_delta }
   
   const UNTRACKED_ELO = { 'Alumn': 1100, 'FOH': 900 };
 
   const getPlayer = (name) => {
     if (!name || name.trim() === '' || name in UNTRACKED_ELO) return null;
     if (!players[name]) {
-      players[name] = { name, elo: 1000, wins: 0, losses: 0, games_played: 0, win_streak: 0, max_win_streak: 0 };
+      players[name] = { name, elo: 1000, wins: 0, losses: 0, games_played: 0, win_streak: 0, max_win_streak: 0, last_game_elo_delta: 0 };
     }
     return players[name];
   };
@@ -191,6 +191,7 @@ async function recalculateAllStats() {
     
     const updatePlayer = (p, isTeamA) => {
       if (!p) return;
+      const delta = isTeamA ? deltaA : deltaB;
       p.games_played++;
       const won = (g.winning_team === 'A' && isTeamA) || (g.winning_team === 'B' && !isTeamA);
       if (won) {
@@ -201,7 +202,8 @@ async function recalculateAllStats() {
         p.losses++;
         p.win_streak = 0;
       }
-      p.elo += isTeamA ? deltaA : deltaB;
+      p.elo += delta;
+      p.last_game_elo_delta = Math.round(delta);
     };
     
     updatePlayer(pA1, true);
@@ -234,7 +236,7 @@ async function recalculateAllStats() {
   // Write back to STATS_SHEET
   const sheets = await getSheetsClient();
   const statsData = [
-    ['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played', 'win_streak', 'max_win_streak']
+    ['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played', 'win_streak', 'max_win_streak', 'last_game_elo_delta']
   ];
   
   for (const p of playersArray) {
@@ -246,7 +248,8 @@ async function recalculateAllStats() {
       p.losses,
       p.games_played,
       p.win_streak || 0,
-      p.max_win_streak || 0
+      p.max_win_streak || 0,
+      p.last_game_elo_delta || 0
     ]);
   }
   
@@ -255,7 +258,7 @@ async function recalculateAllStats() {
     // Clear old stats first
     await sheets.spreadsheets.values.clear({
       spreadsheetId: config.dieSpreadsheetId,
-      range: `${STATS_SHEET}!A1:H`,
+      range: `${STATS_SHEET}!A1:I`,
     });
     
     await sheets.spreadsheets.values.update({
@@ -643,9 +646,9 @@ async function initDieSheets() {
       if (!existingTitles.includes(STATS_SHEET)) {
         await sheets.spreadsheets.values.update({
           spreadsheetId: config.dieSpreadsheetId,
-          range: `${STATS_SHEET}!A1:H1`,
+          range: `${STATS_SHEET}!A1:I1`,
           valueInputOption: 'USER_ENTERED',
-          resource: { values: [['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played', 'win_streak', 'max_win_streak']] }
+          resource: { values: [['player_name', 'ELO', 'rank', 'wins', 'losses', 'games_played', 'win_streak', 'max_win_streak', 'last_game_elo_delta']] }
         });
       }
     }
