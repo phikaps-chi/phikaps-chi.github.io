@@ -272,6 +272,51 @@
         }
         #dev-password-form button:hover { background: #fff59d; }
         #dev-password-error { color: #f66; font-size: 0.98rem; }
+
+        .reload-banner {
+            position: fixed;
+            top: 0.6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.92);
+            border: 1px solid #ff9900;
+            color: #ffd700;
+            border-radius: 999px;
+            padding: 0.4rem 0.75rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 12000;
+            box-shadow: 0 4px 20px rgba(255, 153, 0, 0.2);
+            max-width: calc(100vw - 1.5rem);
+        }
+        .reload-banner-text {
+            font-size: 0.8rem;
+            opacity: 0.95;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pull-refresh-indicator {
+            position: fixed;
+            top: 0.6rem;
+            left: 50%;
+            transform: translate(-50%, -140%);
+            opacity: 0;
+            font-size: 0.78rem;
+            color: #ffd700;
+            background: rgba(0, 0, 0, 0.88);
+            border: 1px solid rgba(255, 215, 0, 0.35);
+            border-radius: 999px;
+            padding: 0.35rem 0.7rem;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            z-index: 11900;
+            pointer-events: none;
+        }
+        .pull-refresh-indicator.visible {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -289,6 +334,11 @@
         <div id="dev-password-error"></div>
       </form>
     </div>
+    <div id="reload-banner" class="reload-banner">
+        <span id="reload-banner-text" class="reload-banner-text">Session may be stale.</span>
+        <button style="padding:0.25rem 0.6rem;border-radius:999px;border:1px solid #ffd700;background:#ffd700;color:#1a1a1a;font-weight:600;cursor:pointer;" onclick="forceReloadPage()">Reload</button>
+    </div>
+    <div id="pull-refresh-indicator" class="pull-refresh-indicator">Pull down to refresh</div>
     <div id="app-shell"></div>
     <script>
         const USER_EMAIL = '<%- email %>';
@@ -301,6 +351,106 @@
         let customButtonsData = {}; 
         const appShell = document.getElementById('app-shell');
         const loader = document.getElementById('loader-wrapper');
+        window._reloadInProgress = false;
+
+        function forceReloadPage() {
+            if (window._reloadInProgress) return;
+            window._reloadInProgress = true;
+            window.location.reload();
+        }
+
+        function showReloadBanner(message) {
+            const banner = document.getElementById('reload-banner');
+            const text = document.getElementById('reload-banner-text');
+            if (text) text.textContent = message || 'Session may be stale.';
+            if (banner) banner.style.display = 'flex';
+        }
+
+        function hideReloadBanner() {
+            const banner = document.getElementById('reload-banner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function installFetchGuard() {
+            if (window.__homeFetchGuardInstalled) return;
+            window.__homeFetchGuardInstalled = true;
+            const nativeFetch = window.fetch.bind(window);
+
+            window.fetch = async function(input, init = {}) {
+                const timeoutMs = 15000;
+                const hasSignal = !!init.signal;
+                const controller = hasSignal ? null : new AbortController();
+                const timer = setTimeout(() => {
+                    if (controller) controller.abort();
+                }, timeoutMs);
+
+                try {
+                    const response = await nativeFetch(input, hasSignal ? init : { ...init, cache: 'no-store', signal: controller.signal });
+                    if (response.status === 401 || response.status === 403) {
+                        const err = new Error('Session expired or stale app instance');
+                        err.code = 'AUTH_REQUIRED';
+                        err.status = response.status;
+                        showReloadBanner('Session stale after deploy. Pull down or tap Reload.');
+                        throw err;
+                    }
+                    return response;
+                } catch (e) {
+                    if (e.name === 'AbortError') {
+                        const err = new Error('Request timed out');
+                        err.code = 'REQUEST_TIMEOUT';
+                        showReloadBanner('Connection timed out. Pull down or tap Reload.');
+                        throw err;
+                    }
+                    throw e;
+                } finally {
+                    clearTimeout(timer);
+                }
+            };
+        }
+
+        function initPullToRefresh() {
+            const indicator = document.getElementById('pull-refresh-indicator');
+            if (!indicator) return;
+
+            let startY = null;
+            let pullDistance = 0;
+            const threshold = 90;
+
+            const reset = () => {
+                startY = null;
+                pullDistance = 0;
+                indicator.classList.remove('visible');
+                indicator.textContent = 'Pull down to refresh';
+            };
+
+            window.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                if (window.scrollY > 0) return;
+                const devModal = document.getElementById('dev-password-modal');
+                if (devModal && getComputedStyle(devModal).display !== 'none') return;
+                startY = e.touches[0].clientY;
+                pullDistance = 0;
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (startY === null) return;
+                const delta = e.touches[0].clientY - startY;
+                if (delta <= 0) return;
+                pullDistance = delta;
+                indicator.classList.add('visible');
+                indicator.textContent = delta >= threshold ? 'Release to refresh' : 'Pull down to refresh';
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                if (pullDistance >= threshold) {
+                    forceReloadPage();
+                    return;
+                }
+                reset();
+            }, { passive: true });
+
+            window.addEventListener('touchcancel', reset, { passive: true });
+        }
 
         // ----- Dev Password Logic -----
         function checkDevPassword() {
@@ -356,12 +506,23 @@
 
             apiCall(functionName, args)
                 .then(function(result) {
+                    hideReloadBanner();
                     if (successHandler) successHandler(result);
                     resolve(result);
                     isApiProcessing = false;
                     processApiQueue();
                 })
                 .catch(function(error) {
+                    if (error && (error.code === 'AUTH_REQUIRED' || error.code === 'REQUEST_TIMEOUT')) {
+                        while (apiQueue.length > 0) {
+                            const pending = apiQueue.shift();
+                            if (pending && pending.reject) pending.reject(error);
+                        }
+                        if (failureHandler) failureHandler(error);
+                        reject(error);
+                        isApiProcessing = false;
+                        return;
+                    }
                     console.error('API call failed, requeueing...', error);
                     apiQueue.unshift({ functionName, args, successHandler, failureHandler, resolve, reject });
                     isApiProcessing = false;
@@ -375,7 +536,14 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ args: args })
-            }).then(r => { if (!r.ok) throw new Error('API error ' + r.status); return r.json(); });
+            }).then(r => {
+                if (!r.ok) {
+                    const err = new Error('API error ' + r.status);
+                    err.status = r.status;
+                    throw err;
+                }
+                return r.json();
+            });
         }
 
         function handleNavigation(e) {
@@ -419,6 +587,7 @@
 
         function renderHomePage(data) {
             if (!data) return;
+            hideReloadBanner();
             if (data.customButtons && data.customButtons.length > 0) {
                 data.customButtons.forEach(button => {
                     if (button.isHtml) customButtonsData[button.id] = button.content;
@@ -957,6 +1126,7 @@
         }
 
         function renderDynamicPage(htmlString) {
+            hideReloadBanner();
             const backButton = `<a href="#" data-page="home" class="back-to-home-btn">🏠 Back to Portal Home</a>`;
             const frag = document.createRange().createContextualFragment(htmlString);
             const scripts = Array.from(frag.querySelectorAll('script'));
@@ -1000,6 +1170,8 @@
                 .catch(err => { appShell.innerHTML = `<div class="container"><h2 style="color:red">Load error</h2><p>${err.message}</p></div>`; hideLoader(); });
         }
         document.addEventListener('DOMContentLoaded', () => {
+            installFetchGuard();
+            initPullToRefresh();
             document.body.addEventListener('click', handleNavigation);
             if (BASE_URL.includes('dev')) {
                 if (sessionStorage.getItem('DEV_PASSWORD_OK') === 'true') loadHomePageNormally();

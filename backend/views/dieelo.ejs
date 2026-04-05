@@ -155,6 +155,51 @@
             box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
         }
 
+        .reload-banner {
+            position: fixed;
+            top: 0.6rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.92);
+            border: 1px solid #ff9900;
+            color: #ffd700;
+            border-radius: 999px;
+            padding: 0.4rem 0.75rem;
+            display: none;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 2500;
+            box-shadow: 0 4px 20px rgba(255, 153, 0, 0.2);
+            max-width: calc(100vw - 1.5rem);
+        }
+        .reload-banner-text {
+            font-size: 0.8rem;
+            opacity: 0.95;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .pull-refresh-indicator {
+            position: fixed;
+            top: 0.6rem;
+            left: 50%;
+            transform: translate(-50%, -140%);
+            opacity: 0;
+            font-size: 0.78rem;
+            color: #ffd700;
+            background: rgba(0, 0, 0, 0.88);
+            border: 1px solid rgba(255, 215, 0, 0.35);
+            border-radius: 999px;
+            padding: 0.35rem 0.7rem;
+            transition: transform 0.2s ease, opacity 0.2s ease;
+            z-index: 2400;
+            pointer-events: none;
+        }
+        .pull-refresh-indicator.visible {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+
         /* Mobile Optimizations */
         @media (max-width: 600px) {
             .modal {
@@ -197,10 +242,24 @@
                 height: 50px;
                 font-size: 1.8rem;
             }
+            .reload-banner {
+                width: calc(100vw - 1rem);
+                justify-content: space-between;
+            }
+            .reload-banner-text {
+                white-space: normal;
+                line-height: 1.2;
+            }
         }
     </style>
 </head>
 <body>
+    <div id="reload-banner" class="reload-banner">
+        <span id="reload-banner-text" class="reload-banner-text">Connection looks stale.</span>
+        <button class="btn btn-small" style="padding:0.25rem 0.6rem;" onclick="forceReloadPage()">Reload</button>
+    </div>
+    <div id="pull-refresh-indicator" class="pull-refresh-indicator">Pull down to refresh</div>
+
     <div class="container">
         <div class="header">
             <% if (position && position.includes('Chi')) { %>
@@ -531,24 +590,139 @@
         window.myName = "<%= name %>";
         window.sessionId = "<%= sessionId %>";
         window.pendingGameData = null;
+        window._reloadInProgress = false;
+
+        function forceReloadPage() {
+            if (window._reloadInProgress) return;
+            window._reloadInProgress = true;
+            window.location.reload();
+        }
+
+        function showReloadBanner(message) {
+            const banner = document.getElementById('reload-banner');
+            const text = document.getElementById('reload-banner-text');
+            if (text) text.textContent = message || 'Connection looks stale.';
+            if (banner) banner.style.display = 'flex';
+        }
+
+        function hideReloadBanner() {
+            const banner = document.getElementById('reload-banner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        function isAnyModalOpen() {
+            return Array.from(document.querySelectorAll('.modal-overlay')).some(el => getComputedStyle(el).display !== 'none');
+        }
+
+        async function fetchJsonWithTimeout(url, options = {}, timeoutMs = 15000) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { cache: 'no-store', ...options, signal: controller.signal });
+                const contentType = res.headers.get('content-type') || '';
+                let payload = {};
+
+                if (contentType.includes('application/json')) {
+                    payload = await res.json();
+                } else {
+                    const text = await res.text();
+                    payload = { error: text };
+                }
+
+                if (res.status === 401 || payload.message === 'Not authenticated') {
+                    const err = new Error('Session expired or stale app instance');
+                    err.code = 'AUTH_REQUIRED';
+                    throw err;
+                }
+
+                if (!res.ok) {
+                    const err = new Error(payload.error || payload.message || `Request failed (${res.status})`);
+                    err.code = 'HTTP_ERROR';
+                    throw err;
+                }
+                return payload;
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    const err = new Error('Request timed out');
+                    err.code = 'REQUEST_TIMEOUT';
+                    throw err;
+                }
+                throw e;
+            } finally {
+                clearTimeout(timeout);
+            }
+        }
+
+        function initPullToRefresh() {
+            const indicator = document.getElementById('pull-refresh-indicator');
+            if (!indicator) return;
+
+            let startY = null;
+            let pullDistance = 0;
+            const threshold = 90;
+
+            const reset = () => {
+                startY = null;
+                pullDistance = 0;
+                indicator.classList.remove('visible');
+                indicator.textContent = 'Pull down to refresh';
+            };
+
+            window.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                if (window.scrollY > 0) return;
+                if (isAnyModalOpen()) return;
+                startY = e.touches[0].clientY;
+                pullDistance = 0;
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (startY === null) return;
+                const delta = e.touches[0].clientY - startY;
+                if (delta <= 0) return;
+                pullDistance = delta;
+                indicator.classList.add('visible');
+                indicator.textContent = delta >= threshold ? 'Release to refresh' : 'Pull down to refresh';
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                if (pullDistance >= threshold) {
+                    forceReloadPage();
+                    return;
+                }
+                reset();
+            }, { passive: true });
+
+            window.addEventListener('touchcancel', reset, { passive: true });
+        }
+
+        function handleApiError(error, fallbackMessage) {
+            console.error(error);
+            if (error && (error.code === 'AUTH_REQUIRED' || error.code === 'REQUEST_TIMEOUT')) {
+                showReloadBanner('Session or connection looks stale. Pull down or tap Reload.');
+                return;
+            }
+            if (fallbackMessage) {
+                alert(error?.message || fallbackMessage);
+            }
+        }
 
         async function loadData() {
             try {
-                const [statsRes, gamesRes, disputesRes] = await Promise.all([
-                    fetch(`/api/die/stats?session_id=${window.sessionId}`),
-                    fetch(`/api/die/games?session_id=${window.sessionId}`),
-                    fetch(`/api/die/disputes?session_id=${window.sessionId}`)
+                const [stats, games, disputes] = await Promise.all([
+                    fetchJsonWithTimeout(`/api/die/stats?session_id=${window.sessionId}`),
+                    fetchJsonWithTimeout(`/api/die/games?session_id=${window.sessionId}`),
+                    fetchJsonWithTimeout(`/api/die/disputes?session_id=${window.sessionId}`)
                 ]);
-                
-                const stats = await statsRes.json();
-                const games = await gamesRes.json();
-                const disputes = await disputesRes.json();
-                
+
                 if (stats.error || stats.message) {
                     console.error('Stats error:', stats);
+                    showReloadBanner('Session may be stale. Pull down or tap Reload.');
+                    document.getElementById('profile-loader').style.display = 'none';
                     return;
                 }
-                
+
+                hideReloadBanner();
                 window.allDisputes = Array.isArray(disputes) ? disputes : [];
                 
                 renderProfile(stats);
@@ -559,7 +733,8 @@
                 document.getElementById('profile-loader').style.display = 'none';
                 document.getElementById('profile-content').style.display = 'grid';
             } catch (e) {
-                console.error('Error loading data', e);
+                document.getElementById('profile-loader').style.display = 'none';
+                handleApiError(e);
             }
         }
 
@@ -818,23 +993,16 @@
                     payload.drink_type = document.getElementById('dispute-drink-type').value;
                 }
                 
-                const res = await fetch(`/api/die/disputes?session_id=${window.sessionId}`, {
+                await fetchJsonWithTimeout(`/api/die/disputes?session_id=${window.sessionId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-                
-                const result = await res.json();
-                if (!res.ok) {
-                    alert(result.error || 'Failed to submit dispute');
-                    return;
-                }
-                
+
                 closeModal('dispute-modal');
                 loadData();
             } catch (e) {
-                console.error(e);
-                alert('Error submitting dispute.');
+                handleApiError(e, 'Error submitting dispute.');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Submit Dispute';
@@ -845,22 +1013,15 @@
             if (!confirm(`Are you sure you want to ${resolution === 'accepted' ? 'ACCEPT' : 'REJECT'} this dispute?`)) return;
             
             try {
-                const res = await fetch(`/api/die/disputes/${disputeId}/resolve?session_id=${window.sessionId}`, {
+                await fetchJsonWithTimeout(`/api/die/disputes/${disputeId}/resolve?session_id=${window.sessionId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ resolution })
                 });
-                
-                const result = await res.json();
-                if (!res.ok) {
-                    alert(result.error || 'Failed to resolve dispute');
-                    return;
-                }
-                
+
                 loadData();
             } catch (e) {
-                console.error(e);
-                alert('Error resolving dispute.');
+                handleApiError(e, 'Error resolving dispute.');
             }
         }
 
@@ -962,33 +1123,20 @@
                 };
                 
                 if (isEdit) {
-                    const res = await fetch(`/api/die/games/${gameId}?session_id=${window.sessionId}`, {
+                    await fetchJsonWithTimeout(`/api/die/games/${gameId}?session_id=${window.sessionId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
-                    const result = await res.json();
-                    if (!res.ok) {
-                        alert(result.error || 'Failed to update game');
-                        return;
-                    }
                     closeModal('game-modal');
                     loadData();
                 } else {
-                    const res = await fetch(`/api/die/games?session_id=${window.sessionId}`, {
+                    const result = await fetchJsonWithTimeout(`/api/die/games?session_id=${window.sessionId}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
-                    
-                    if (!res.ok) {
-                        console.error('Failed to save game:', await res.text());
-                        alert('Error saving game. Please try again.');
-                        return;
-                    }
-                    
-                    const result = await res.json();
-                    
+
                     if (result.duplicate) {
                         window.pendingGameData = data;
                         document.getElementById('duplicate-details').innerHTML = `
@@ -1002,6 +1150,8 @@
                         loadData();
                     }
                 }
+            } catch (e) {
+                handleApiError(e, isEdit ? 'Failed to update game' : 'Error saving game. Please try again.');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
@@ -1018,7 +1168,7 @@
             try {
                 window.pendingGameData.force_submit = true;
                 
-                await fetch(`/api/die/games?session_id=${window.sessionId}`, {
+                await fetchJsonWithTimeout(`/api/die/games?session_id=${window.sessionId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(window.pendingGameData)
@@ -1027,6 +1177,8 @@
                 closeModal('duplicate-modal');
                 closeModal('game-modal');
                 loadData();
+            } catch (e) {
+                handleApiError(e, 'Error saving game. Please try again.');
             } finally {
                 forceBtn.disabled = false;
                 forceBtn.textContent = 'Yes, Log It';
@@ -1035,6 +1187,7 @@
 
 
         // Initial load
+        initPullToRefresh();
         loadData();
 
         if (window.pollInterval) clearInterval(window.pollInterval);
@@ -1069,14 +1222,12 @@
             }
             
             try {
-                const res = await fetch(`/api/die/recalculate?session_id=${window.sessionId}`, { method: 'POST' });
-                if (!res.ok) throw new Error('Failed to recalculate');
+                await fetchJsonWithTimeout(`/api/die/recalculate?session_id=${window.sessionId}`, { method: 'POST' });
                 
                 alert('Stats successfully recalculated!');
                 loadData();
             } catch (e) {
-                console.error(e);
-                alert('Error recalculating stats.');
+                handleApiError(e, 'Error recalculating stats.');
             } finally {
                 if (btn) {
                     btn.disabled = false;

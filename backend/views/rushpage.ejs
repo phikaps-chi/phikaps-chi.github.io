@@ -3,6 +3,216 @@
       var _sid = '<%- sessionId %>' || (typeof SESSION_ID !== 'undefined' ? SESSION_ID : new URLSearchParams(window.location.search).get('session_id') || '');
       function rushApiUrl(path) { return path + '?session_id=' + encodeURIComponent(_sid); }
     }
+
+    (function initRushSessionRecovery() {
+      if (window.__rushSessionRecoveryInitialized) return;
+      window.__rushSessionRecoveryInitialized = true;
+      window.__rushReloadInProgress = false;
+
+      function ensureRecoveryUI() {
+        if (!document.body) return;
+
+        if (!document.getElementById('rush-recovery-style')) {
+          const style = document.createElement('style');
+          style.id = 'rush-recovery-style';
+          style.textContent = `
+            .rush-reload-banner {
+              position: fixed;
+              top: 0.6rem;
+              left: 50%;
+              transform: translateX(-50%);
+              background: rgba(0, 0, 0, 0.92);
+              border: 1px solid #ff9900;
+              color: #ffd700;
+              border-radius: 999px;
+              padding: 0.4rem 0.75rem;
+              display: none;
+              align-items: center;
+              gap: 0.5rem;
+              z-index: 2500;
+              box-shadow: 0 4px 20px rgba(255, 153, 0, 0.2);
+              max-width: calc(100vw - 1.5rem);
+            }
+            .rush-reload-banner-text {
+              font-size: 0.8rem;
+              opacity: 0.95;
+              white-space: nowrap;
+              overflow: hidden;
+              text-overflow: ellipsis;
+            }
+            .rush-pull-refresh-indicator {
+              position: fixed;
+              top: 0.6rem;
+              left: 50%;
+              transform: translate(-50%, -140%);
+              opacity: 0;
+              font-size: 0.78rem;
+              color: #ffd700;
+              background: rgba(0, 0, 0, 0.88);
+              border: 1px solid rgba(255, 215, 0, 0.35);
+              border-radius: 999px;
+              padding: 0.35rem 0.7rem;
+              transition: transform 0.2s ease, opacity 0.2s ease;
+              z-index: 2400;
+              pointer-events: none;
+            }
+            .rush-pull-refresh-indicator.visible {
+              transform: translate(-50%, 0);
+              opacity: 1;
+            }
+            @media (max-width: 600px) {
+              .rush-reload-banner {
+                width: calc(100vw - 1rem);
+                justify-content: space-between;
+              }
+              .rush-reload-banner-text {
+                white-space: normal;
+                line-height: 1.2;
+              }
+            }
+          `;
+          document.head.appendChild(style);
+        }
+
+        if (!document.getElementById('rush-reload-banner')) {
+          const banner = document.createElement('div');
+          banner.id = 'rush-reload-banner';
+          banner.className = 'rush-reload-banner';
+          banner.innerHTML = `
+            <span id="rush-reload-banner-text" class="rush-reload-banner-text">Session may be stale.</span>
+            <button style="padding:0.25rem 0.6rem;border-radius:999px;border:1px solid #ffd700;background:#ffd700;color:#1a1a1a;font-weight:600;cursor:pointer;" onclick="forceRushReload()">Reload</button>
+          `;
+          document.body.appendChild(banner);
+        }
+
+        if (!document.getElementById('rush-pull-refresh-indicator')) {
+          const indicator = document.createElement('div');
+          indicator.id = 'rush-pull-refresh-indicator';
+          indicator.className = 'rush-pull-refresh-indicator';
+          indicator.textContent = 'Pull down to refresh';
+          document.body.appendChild(indicator);
+        }
+      }
+
+      function whenReady(fn) {
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', fn, { once: true });
+        } else {
+          fn();
+        }
+      }
+
+      window.forceRushReload = function forceRushReload() {
+        if (window.__rushReloadInProgress) return;
+        window.__rushReloadInProgress = true;
+        window.location.reload();
+      };
+
+      window.showRushReloadBanner = function showRushReloadBanner(message) {
+        ensureRecoveryUI();
+        const banner = document.getElementById('rush-reload-banner');
+        const text = document.getElementById('rush-reload-banner-text');
+        if (text) text.textContent = message || 'Session may be stale.';
+        if (banner) banner.style.display = 'flex';
+      };
+
+      window.hideRushReloadBanner = function hideRushReloadBanner() {
+        const banner = document.getElementById('rush-reload-banner');
+        if (banner) banner.style.display = 'none';
+      };
+
+      function anyModalOpen() {
+        return Array.from(document.querySelectorAll('.modal')).some(el => getComputedStyle(el).display !== 'none');
+      }
+
+      function initPullToRefresh() {
+        whenReady(() => {
+          ensureRecoveryUI();
+          const indicator = document.getElementById('rush-pull-refresh-indicator');
+          if (!indicator) return;
+
+          let startY = null;
+          let pullDistance = 0;
+          const threshold = 90;
+
+          const reset = () => {
+            startY = null;
+            pullDistance = 0;
+            indicator.classList.remove('visible');
+            indicator.textContent = 'Pull down to refresh';
+          };
+
+          window.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            if (window.scrollY > 0) return;
+            if (anyModalOpen()) return;
+            startY = e.touches[0].clientY;
+            pullDistance = 0;
+          }, { passive: true });
+
+          window.addEventListener('touchmove', (e) => {
+            if (startY === null) return;
+            const delta = e.touches[0].clientY - startY;
+            if (delta <= 0) return;
+            pullDistance = delta;
+            indicator.classList.add('visible');
+            indicator.textContent = delta >= threshold ? 'Release to refresh' : 'Pull down to refresh';
+          }, { passive: true });
+
+          window.addEventListener('touchend', () => {
+            if (pullDistance >= threshold) {
+              window.forceRushReload();
+              return;
+            }
+            reset();
+          }, { passive: true });
+
+          window.addEventListener('touchcancel', reset, { passive: true });
+        });
+      }
+
+      function installFetchGuard() {
+        if (window.__rushFetchGuardInstalled) return;
+        window.__rushFetchGuardInstalled = true;
+        const nativeFetch = window.fetch.bind(window);
+
+        window.fetch = async function guardedRushFetch(input, init = {}) {
+          const timeoutMs = 15000;
+          const hasSignal = !!init.signal;
+          const controller = hasSignal ? null : new AbortController();
+          const timer = setTimeout(() => {
+            if (controller) controller.abort();
+          }, timeoutMs);
+
+          try {
+            const response = await nativeFetch(input, hasSignal ? init : { ...init, cache: 'no-store', signal: controller.signal });
+            if (response.status === 401 || response.status === 403) {
+              const err = new Error('Session expired or stale app instance');
+              err.code = 'AUTH_REQUIRED';
+              err.status = response.status;
+              window.showRushReloadBanner('Session stale after deploy. Pull down or tap Reload.');
+              throw err;
+            }
+            window.hideRushReloadBanner();
+            return response;
+          } catch (e) {
+            if (e.name === 'AbortError') {
+              const err = new Error('Request timed out');
+              err.code = 'REQUEST_TIMEOUT';
+              window.showRushReloadBanner('Connection timed out. Pull down or tap Reload.');
+              throw err;
+            }
+            throw e;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+      }
+
+      whenReady(ensureRecoveryUI);
+      initPullToRefresh();
+      installFetchGuard();
+    })();
     // Unified State Manager - combines debouncing with state management
     window.stateManager = {
       debounceTimers: new Map(),
