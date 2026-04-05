@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const LEDGER_SHEET = 'Game Ledger';
 const STATS_SHEET = 'Player Stats';
 const DISPUTES_SHEET = 'Disputes';
+const UNTRACKED_ELO = { Alumn: 1100, FOH: 900 };
 
 // Helper to get die spreadsheet data
 async function getDieSheetData(sheetName) {
@@ -31,6 +32,21 @@ function clearDieSheetCache() {
   cache.del(`dieSheetData_${LEDGER_SHEET}`);
   cache.del(`dieSheetData_${STATS_SHEET}`);
   cache.del(`dieSheetData_${DISPUTES_SHEET}`);
+}
+
+function getSeatEloValue(name, trackedEloProvider) {
+  if (!name || name.trim() === '') return null;
+  if (UNTRACKED_ELO[name] !== undefined) return UNTRACKED_ELO[name];
+  const tracked = trackedEloProvider ? trackedEloProvider(name) : null;
+  return tracked ?? 1000;
+}
+
+function calculateTeamElo(playerNames, trackedEloProvider) {
+  const seatElos = playerNames
+    .map(name => getSeatEloValue(name, trackedEloProvider))
+    .filter(v => v !== null);
+  if (!seatElos.length) return 1000;
+  return seatElos.reduce((sum, v) => sum + v, 0) / seatElos.length;
 }
 
 async function getStats() {
@@ -63,8 +79,8 @@ async function getGameHistory(userName) {
   // Replay ELO history to attach per-player deltas
   const sorted = [...games].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
   const elos = {};
-  const getElo = (name) => {
-    if (!name || name.trim() === '' || name === 'FOH' || name === 'Alumn') return null;
+  const getTrackedElo = (name) => {
+    if (!name || name.trim() === '' || UNTRACKED_ELO[name] !== undefined) return null;
     if (elos[name] === undefined) elos[name] = 1000;
     return elos[name];
   };
@@ -72,24 +88,18 @@ async function getGameHistory(userName) {
   for (const g of sorted) {
     if (!g.winning_team || (g.winning_team !== 'A' && g.winning_team !== 'B')) continue;
 
-    const eA1 = getElo(g.team_a_player_1);
-    const eA2 = getElo(g.team_a_player_2);
-    const eB1 = getElo(g.team_b_player_1);
-    const eB2 = getElo(g.team_b_player_2);
-
-    const cntA = (eA1 !== null ? 1 : 0) + (eA2 !== null ? 1 : 0);
-    const cntB = (eB1 !== null ? 1 : 0) + (eB2 !== null ? 1 : 0);
-    const teamAElo = ((eA1 || 1000) + (eA2 || 1000)) / (cntA || 1);
-    const teamBElo = ((eB1 || 1000) + (eB2 || 1000)) / (cntB || 1);
+    const teamAElo = calculateTeamElo([g.team_a_player_1, g.team_a_player_2], getTrackedElo);
+    const teamBElo = calculateTeamElo([g.team_b_player_1, g.team_b_player_2], getTrackedElo);
 
     const remaining = parseInt(g.winner_remaining) || 1;
     const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining, g.drink_type);
 
     g.elo_deltas = {};
     const apply = (name, delta) => {
-      if (!name || name.trim() === '' || name === 'FOH' || name === 'Alumn') return;
+      if (!name || name.trim() === '' || UNTRACKED_ELO[name] !== undefined) return;
+      if (elos[name] === undefined) elos[name] = 1000;
       g.elo_deltas[name] = Math.round(delta);
-      elos[name] = (elos[name] || 1000) + delta;
+      elos[name] += delta;
     };
     apply(g.team_a_player_1, deltaA);
     apply(g.team_a_player_2, deltaA);
@@ -160,8 +170,6 @@ async function recalculateAllStats() {
   
   const players = {}; // name -> { elo, wins, losses, games_played, win_streak, max_win_streak, last_game_elo_delta }
   
-  const UNTRACKED_ELO = { 'Alumn': 1100, 'FOH': 900 };
-
   const getPlayer = (name) => {
     if (!name || name.trim() === '' || name in UNTRACKED_ELO) return null;
     if (!players[name]) {
@@ -170,11 +178,6 @@ async function recalculateAllStats() {
     return players[name];
   };
 
-  const effectiveElo = (player, name) => {
-    if (player) return player.elo;
-    return UNTRACKED_ELO[name] ?? 1000;
-  };
-  
   for (const g of games) {
     if (!g.winning_team || (g.winning_team !== 'A' && g.winning_team !== 'B')) continue;
 
@@ -183,8 +186,12 @@ async function recalculateAllStats() {
     const pB1 = getPlayer(g.team_b_player_1);
     const pB2 = getPlayer(g.team_b_player_2);
     
-    const teamAElo = (effectiveElo(pA1, g.team_a_player_1) + effectiveElo(pA2, g.team_a_player_2)) / ( (pA1?1:0) + (pA2?1:0) || 1 );
-    const teamBElo = (effectiveElo(pB1, g.team_b_player_1) + effectiveElo(pB2, g.team_b_player_2)) / ( (pB1?1:0) + (pB2?1:0) || 1 );
+    const trackedEloProvider = (name) => {
+      const p = getPlayer(name);
+      return p ? p.elo : null;
+    };
+    const teamAElo = calculateTeamElo([g.team_a_player_1, g.team_a_player_2], trackedEloProvider);
+    const teamBElo = calculateTeamElo([g.team_b_player_1, g.team_b_player_2], trackedEloProvider);
     
     const remaining = parseInt(g.winner_remaining) || 1;
     const { deltaA, deltaB } = calculateElo(teamAElo, teamBElo, g.winning_team, g.score_type, remaining, g.drink_type);
