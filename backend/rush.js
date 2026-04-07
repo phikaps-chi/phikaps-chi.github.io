@@ -144,95 +144,221 @@ async function calculateRushStatistics(recruitsTabId) {
 }
 
 function calculateBrotherStats(brotherName, recruits, comments) {
-  let recruitsMetCount = 0;
-  let recruitsLikedCount = 0;
-  let recruitsDislikedCount = 0;
-  let commentsCount = 0;
-  let points = 0;
-  let primaryContactCount = 0;
+  // Count recruits met
+  const recruitsMetCount = recruits.filter(r => {
+    const met = JSON.parse(r.met || '[]');
+    return met.includes(brotherName);
+  }).length;
+
+  // Count recruits liked
+  const recruitsLikedCount = recruits.filter(r => {
+    const likes = JSON.parse(r.likes || '[]');
+    return likes.includes(brotherName);
+  }).length;
+
+  // Count recruits disliked
+  const recruitsDislikedCount = recruits.filter(r => {
+    const dislikes = JSON.parse(r.dislikes || '[]');
+    return dislikes.includes(brotherName);
+  }).length;
+
+  // Count primary contacts - 50 point bonus for being a primary contact
+  const primaryContactCount = recruits.filter(r => {
+    const primaryContacts = r.primaryContacts || [];
+    return primaryContacts.includes(brotherName);
+  }).length;
+
+  // Count first-to-meet (rewards sourcing/adding recruits)
+  let firstToMeetCount = 0;
+  let firstMoverBonus = 0;
+
+  recruits.forEach(r => {
+    const met = JSON.parse(r.met || '[]');
+
+    // First person in the met array gets the bonus
+    if (met.length > 0 && met[0] === brotherName) {
+      firstToMeetCount++;
+      firstMoverBonus += 10; // +10 points for being first to meet
+    }
+  });
+
+  // Count comments and analyze them
+  const brotherComments = comments.filter(c => c.author === brotherName);
+  const commentsCount = brotherComments.length;
+
+  let longCommentsCount = 0;
+  let veryLongCommentsCount = 0;
+  brotherComments.forEach(c => {
+    const textLength = (c.text || '').length;
+    if (textLength > 100) veryLongCommentsCount++;
+    else if (textLength > 50) longCommentsCount++;
+  });
+
+  // Calculate bid success bonus - ONLY if you were the primary contact for a recruit who got a bid
   let bidSuccessBonus = 0;
+  recruits.forEach(r => {
+    if (r.tier === 4 || r.tier === '4') {
+      const primaryContacts = r.primaryContacts || [];
 
-  const brotherCommentsByRecruit = {};
-  comments.forEach((c) => {
-    if (c.author === brotherName) {
-      commentsCount++;
-      if (!brotherCommentsByRecruit[c.recruitId]) brotherCommentsByRecruit[c.recruitId] = [];
-      brotherCommentsByRecruit[c.recruitId].push(c);
-    }
-  });
-
-  recruits.forEach((r) => {
-    let metThis = false;
-    let likedThis = false;
-    let dislikedThis = false;
-    try { metThis = JSON.parse(r.met || '[]').includes(brotherName); } catch (_) {}
-    try { likedThis = JSON.parse(r.likes || '[]').includes(brotherName); } catch (_) {}
-    try { dislikedThis = JSON.parse(r.dislikes || '[]').includes(brotherName); } catch (_) {}
-
-    if (metThis) {
-      recruitsMetCount++;
-      points += 6;
-      try {
-        const metArr = JSON.parse(r.met || '[]');
-        if (metArr[0] === brotherName) points += 10;
-      } catch (_) {}
-    }
-
-    if (likedThis) {
-      recruitsLikedCount++;
-      if (metThis) {
-        const hasComment = !!brotherCommentsByRecruit[r.id];
-        points += hasComment ? 5 : 2;
-      }
-      try {
-        const likesArr = JSON.parse(r.likes || '[]');
-        if (likesArr[0] === brotherName) points += 8;
-      } catch (_) {}
-    }
-
-    if (dislikedThis) {
-      recruitsDislikedCount++;
-      const hasComment = !!brotherCommentsByRecruit[r.id];
-      points += hasComment ? 8 : 5;
-    }
-
-    if ((r.primaryContacts || []).includes(brotherName)) {
-      primaryContactCount++;
-      points += 50;
-      if (r.tier === 4 || r.tier === '4') {
+      // +50 points if you were a primary contact for a recruit who received a bid
+      if (primaryContacts.includes(brotherName)) {
         bidSuccessBonus += 50;
-        points += 50;
       }
     }
   });
 
-  comments.filter((c) => c.author === brotherName).forEach((c) => {
-    const len = (c.text || '').length;
-    points += 5;
-    if (len >= 100) points += 10;
-    else if (len >= 50) points += 5;
+  // NEW POINT SYSTEM: Encourages thoughtful engagement with strong comment incentive
+  // Calculate points from recruits with comments
+  let likePoints = 0;
+  let dislikePoints = 0;
+
+  recruits.forEach(r => {
+    const likes = JSON.parse(r.likes || '[]');
+    const dislikes = JSON.parse(r.dislikes || '[]');
+    const met = JSON.parse(r.met || '[]');
+    const hasComment = brotherComments.some(c => String(c.recruitId) === String(r.id));
+    const hasMet = met.includes(brotherName);
+
+    if (likes.includes(brotherName)) {
+      // Like WITHOUT meeting: 0 points (no blind likes!)
+      // Like after meeting: +2 points
+      // Like after meeting + Comment: +5 points (reward for detailed feedback)
+      if (hasMet) {
+        likePoints += hasComment ? 5 : 2;
+      }
+      // No points for blind likes (liking without meeting)
+    }
+
+    if (dislikes.includes(brotherName)) {
+      // Dislike alone: +5 points (valuable signal for Rho)
+      // Dislike + Comment: +8 points (extra reward for explaining concerns)
+      dislikePoints += hasComment ? 8 : 5;
+    }
   });
 
+  // Calculate base points
+  let points = 0;
+  points += recruitsMetCount * 6;            // +6 per recruit met
+  points += likePoints;                      // 0 for blind likes, +2 after meeting, +5 with comment
+  points += dislikePoints;                   // +5 per dislike, +8 with comment
+  points += commentsCount * 5;               // +5 per comment (base)
+  points += longCommentsCount * 5;           // +5 bonus for >50 char comments
+  points += veryLongCommentsCount * 10;      // +10 bonus for >100 char comments
+  points += bidSuccessBonus;                 // +50 per bidded recruit you were primary contact for
+  points += primaryContactCount * 50;        // +50 per recruit you're primary contact for
+  points += firstMoverBonus;                 // +10 per first meet (sourcing bonus)
+
+  // ENGAGEMENT QUALITY MULTIPLIER
+  // Rewards brothers who comment on a high percentage of their votes
   const totalVotes = recruitsLikedCount + recruitsDislikedCount;
-  if (totalVotes > 0) {
-    const commentRate = commentsCount / totalVotes;
-    if (commentRate >= 0.75) points = Math.round(points * 1.5);
-    else if (commentRate >= 0.5) points = Math.round(points * 1.2);
+  const commentRate = totalVotes > 0 ? (commentsCount / totalVotes) : 0;
+
+  let qualityMultiplier = 1.0;
+  if (commentRate >= 0.75) {
+    qualityMultiplier = 1.5; // 50% bonus for 75%+ comment rate
+  } else if (commentRate >= 0.5) {
+    qualityMultiplier = 1.2; // 20% bonus for 50%+ comment rate
   }
 
-  return { name: brotherName, recruitsMetCount, recruitsLikedCount, recruitsDislikedCount, commentsCount, bidSuccessBonus, points };
+  // Apply quality multiplier to final points
+  points = Math.round(points * qualityMultiplier);
+
+  return {
+    name: brotherName,
+    recruitsMetCount,
+    recruitsLikedCount,
+    recruitsDislikedCount,
+    commentsCount,
+    longCommentsCount,
+    veryLongCommentsCount,
+    bidSuccessBonus,
+    primaryContactCount,
+    firstToMeetCount,
+    firstMoverBonus,
+    points
+  };
 }
 
 function calculateBadges(stats, totalRecruits) {
   const badges = [];
-  if (stats.recruitsMetCount >= totalRecruits * 0.75 && totalRecruits > 0)
-    badges.push({ name: 'Social Butterfly', emoji: '\uD83E\uDD8B', description: 'Met 75%+ of recruits' });
-  if (stats.commentsCount >= 10)
-    badges.push({ name: 'Commentator', emoji: '\uD83D\uDCAC', description: 'Left 10+ comments' });
-  if (stats.recruitsLikedCount >= 5)
-    badges.push({ name: 'Hype Man', emoji: '\uD83D\uDD25', description: 'Liked 5+ recruits' });
-  if (stats.points >= 50)
-    badges.push({ name: 'Rush MVP', emoji: '\uD83C\uDFC6', description: 'Scored 50+ points' });
+
+  // Badge 1: First Contact (met at least 1 recruit)
+  if (stats.recruitsMetCount >= 1) {
+    badges.push({ id: 'first_contact', name: 'First Contact', emoji: '👋', description: 'Met at least one recruit' });
+  }
+
+  // Badge 2: Networker (met 50%+ of recruits)
+  const meetingPercentage = totalRecruits > 0 ? (stats.recruitsMetCount / totalRecruits) * 100 : 0;
+  if (meetingPercentage >= 50) {
+    badges.push({ id: 'networker', name: 'Networker', emoji: '🤝', description: 'Met 50%+ of recruits' });
+  }
+
+  // Badge 3: Super Networker (met 90%+ of recruits)
+  if (meetingPercentage >= 90) {
+    badges.push({ id: 'super_networker', name: 'Super Networker', emoji: '🌟', description: 'Met 90%+ of recruits' });
+  }
+
+  // Badge 4: Thoughtful Brother (average comment length > 50 chars)
+  if (stats.commentsCount > 0 && stats.longCommentsCount + stats.veryLongCommentsCount > 0) {
+    badges.push({ id: 'thoughtful', name: 'Thoughtful Brother', emoji: '💭', description: 'Writes detailed comments' });
+  }
+
+  // Badge 5: Commentator (10+ comments)
+  if (stats.commentsCount >= 10) {
+    badges.push({ id: 'commentator', name: 'Commentator', emoji: '💬', description: 'Posted 10+ comments' });
+  }
+
+  // Badge 6: Super Commentator (25+ comments)
+  if (stats.commentsCount >= 25) {
+    badges.push({ id: 'super_commentator', name: 'Super Commentator', emoji: '📢', description: 'Posted 25+ comments' });
+  }
+
+  // Badge 7: Eagle Eye (liked 25+ recruits)
+  if (stats.recruitsLikedCount >= 25) {
+    badges.push({ id: 'eagle_eye', name: 'Eagle Eye', emoji: '🦅', description: 'Liked 25+ recruits' });
+  }
+
+  // Badge 8: Talent Scout (primary contact for 3+ recruits who got bids)
+  const recruitsWithBidsCount = stats.bidSuccessBonus / 50;
+  if (recruitsWithBidsCount >= 3) {
+    badges.push({ id: 'talent_scout', name: 'Talent Scout', emoji: '🎯', description: 'Primary contact for 3+ recruits who got bids' });
+  }
+
+  // Badge 9: Active Participant (250+ points)
+  if (stats.points >= 250) {
+    badges.push({ id: 'active', name: 'Active Participant', emoji: '⚡', description: 'Earned 250+ points' });
+  }
+
+  // Badge 10: Top Contributor (500+ points)
+  if (stats.points >= 500) {
+    badges.push({ id: 'top_contributor', name: 'Top Contributor', emoji: '🏆', description: 'Earned 500+ points' });
+  }
+
+  // Badge 11: Rush Legend (1000+ points)
+  if (stats.points >= 1000) {
+    badges.push({ id: 'legend', name: 'Rush Legend', emoji: '👑', description: 'Earned 1000+ points' });
+  }
+
+  // Badge 12: Primary Contact (assigned to at least 1 recruit)
+  if (stats.primaryContactCount >= 1) {
+    badges.push({ id: 'primary_contact', name: 'Primary Contact', emoji: '📱', description: 'Primary contact for 1+ recruits' });
+  }
+
+  // Badge 13: Super Contact (primary contact for 5+ recruits)
+  if (stats.primaryContactCount >= 5) {
+    badges.push({ id: 'super_contact', name: 'Super Contact', emoji: '📞', description: 'Primary contact for 5+ recruits' });
+  }
+
+  // Badge 14: If I'm Being Honest... (disliked at least 3 recruits)
+  if (stats.recruitsDislikedCount >= 3) {
+    badges.push({ id: 'honest_feedback', name: "If I'm Being Honest...", emoji: '🤔', description: 'Provided critical feedback on 3+ recruits' });
+  }
+
+  // Badge 15: Recruiter (added/sourced 5+ recruits)
+  if (stats.firstToMeetCount >= 5) {
+    badges.push({ id: 'recruiter', name: 'Recruiter', emoji: '🎣', description: 'Added 5+ recruits to the system' });
+  }
+
   return badges;
 }
 
@@ -244,22 +370,19 @@ async function getRushEvents() {
   const data = await getRushIndexData();
   if (data.length <= 1) return [];
 
-  const events = [];
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
+  return Promise.all(data.slice(1).map(async (row) => {
     const ts = coerceToEpochMs(row[4]);
     const recruitsTabId = row[5];
     const stats = await calculateRushStatistics(recruitsTabId);
-    events.push({
+    return {
       id: String(row[0]), name: row[1], date: row[2], description: row[3],
       timestamp: ts, timestampMs: ts,
       recruitsTabId, commentsTabId: row[6],
       isLocked: row[7] === true || row[7] === 'TRUE' || row[7] === '1' || row[7] === 1,
       totalRecruits: stats.totalRecruits, bids: stats.bids,
       flushes: stats.flushes, yieldRate: stats.yieldRate,
-    });
-  }
-  return events;
+    };
+  }));
 }
 
 async function getRushEvent(id) {
