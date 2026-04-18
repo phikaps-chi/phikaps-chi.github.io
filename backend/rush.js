@@ -370,7 +370,7 @@ async function getRushEvents() {
   const data = await getRushIndexData();
   if (data.length <= 1) return [];
 
-  return Promise.all(data.slice(1).map(async (row) => {
+  const events = await Promise.all(data.slice(1).map(async (row) => {
     const ts = coerceToEpochMs(row[4]);
     const recruitsTabId = row[5];
     const stats = await calculateRushStatistics(recruitsTabId);
@@ -383,6 +383,14 @@ async function getRushEvents() {
       flushes: stats.flushes, yieldRate: stats.yieldRate,
     };
   }));
+
+  // Sort newest to oldest by timestamp (fall back to parsed date).
+  events.sort((a, b) => {
+    const ta = a.timestamp ?? coerceToEpochMs(a.date) ?? 0;
+    const tb = b.timestamp ?? coerceToEpochMs(b.date) ?? 0;
+    return tb - ta;
+  });
+  return events;
 }
 
 async function getRushEvent(id) {

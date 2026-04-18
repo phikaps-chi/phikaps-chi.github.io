@@ -2219,38 +2219,6 @@
       }
     
       /* Minimal top bar */
-      /* SSE Refresh Button */
-      .sse-refresh-btn {
-        position: relative;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #fff;
-        font-size: 18px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s ease;
-        flex-shrink: 0;
-      }
-
-      .sse-refresh-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: rotate(180deg);
-      }
-
-      .sse-refresh-btn.spinning {
-        animation: spin 1s linear infinite;
-      }
-
-      @keyframes spin {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-
       .top-bar {
         position: sticky;
         top: 0;
@@ -4090,10 +4058,6 @@
       </div>
     
       <div class="top-bar">
-      <!-- SSE Refresh Button -->
-      <button class="sse-refresh-btn" id="sseRefreshBtn" onclick="forceSSERefresh()" title="Force refresh data">
-        ↻
-      </button>
       <div class="search-container">
         <input
           type="text"
@@ -4503,32 +4467,6 @@
       updateDeferTimeout: null
     };
     
-    // Force SSE Refresh - triggered by refresh button
-    function forceSSERefresh() {
-      const btn = document.getElementById('sseRefreshBtn');
-      if (btn) {
-        btn.classList.add('spinning');
-      }
-      console.log('Force refreshing SSE connection and data...');
-      
-      if (eventSource) {
-        eventSource.close();
-        eventSource = null;
-      }
-      loadMembersAndComments(); 
-    
-      // Since loadMembersAndComments doesn't return a Promise in your code, 
-      // we handle the button animation separately
-      setTimeout(() => {
-        if (btn) btn.classList.remove('spinning');
-        console.log('Data refreshed successfully');
-      }, 1000);
-    
-      setTimeout(() => {
-        connectSSE();
-      }, 100);
-    }
-
     // SSE Connection Management
     function connectSSE() {
       if (eventSource && eventSource.readyState !== EventSource.CLOSED) {

@@ -836,6 +836,18 @@
       var rushEvents = <%- JSON.stringify(events) %>;
       console.log("rushEvents on rusharchives page:", rushEvents); 
       var APP_BASE_URL = '<%- baseUrl %>';
+
+      // Sort rush events newest to oldest. Uses timestamp when available,
+      // falling back to the parseable date string.
+      function sortRushEventsDesc(list) {
+        return list.sort(function(a, b) {
+          var ta = (a && (a.timestamp || a.timestampMs)) || Date.parse(a && a.date) || 0;
+          var tb = (b && (b.timestamp || b.timestampMs)) || Date.parse(b && b.date) || 0;
+          return tb - ta;
+        });
+      }
+
+      sortRushEventsDesc(rushEvents);
       var filteredEvents = [...rushEvents];
       var currentEditId = null;
       var position = '<%- position %>';
@@ -1219,6 +1231,8 @@
       function performSearch() {
           var searchTerm = document.getElementById('searchInput').value.toLowerCase().trim(); 
 
+          sortRushEventsDesc(rushEvents);
+
           if (!searchTerm) {
               filteredEvents = [...rushEvents];
           } else {
@@ -1278,14 +1292,15 @@ if (!rushForm.dataset.listenerAttached) {
       })
         .then(function(r) { return r.json(); })
         .then(function(e) {
+          const serverEvent = (e && e.id) ? e : payload;
           if (isEdit) {
             // replace the old event in-place
             const idx = rushEvents.findIndex(r => r.id === payload.id);
             if (idx > -1) {
-              rushEvents[idx] = { ...rushEvents[idx], ...payload };
+              rushEvents[idx] = { ...rushEvents[idx], ...serverEvent };
             }
           } else {
-            rushEvents.push(payload);
+            rushEvents.push(serverEvent);
           }
           // reset for next time
           currentEditId = null;
