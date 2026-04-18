@@ -190,8 +190,8 @@ function calculateBrotherStats(brotherName, recruits, comments) {
   let veryLongCommentsCount = 0;
   brotherComments.forEach(c => {
     const textLength = (c.text || '').length;
-    if (textLength > 100) veryLongCommentsCount++;
-    else if (textLength > 50) longCommentsCount++;
+    if (textLength >= 100) veryLongCommentsCount++;
+    else if (textLength >= 50) longCommentsCount++;
   });
 
   // Calculate bid success bonus - ONLY if you were the primary contact for a recruit who got a bid
@@ -212,14 +212,25 @@ function calculateBrotherStats(brotherName, recruits, comments) {
   let likePoints = 0;
   let dislikePoints = 0;
 
+  // First-to-like bonus (rewards being the earliest liker on a recruit)
+  let firstToLikeCount = 0;
+  let firstLikeBonus = 0;
+
+  // Numerator for the quality multiplier: count of recruits the brother
+  // voted on (liked OR disliked) AND also left a comment on. This gives
+  // per-vote comment attribution instead of "any comment / any vote".
+  let votedRecruitsWithComment = 0;
+
   recruits.forEach(r => {
     const likes = JSON.parse(r.likes || '[]');
     const dislikes = JSON.parse(r.dislikes || '[]');
     const met = JSON.parse(r.met || '[]');
     const hasComment = brotherComments.some(c => String(c.recruitId) === String(r.id));
     const hasMet = met.includes(brotherName);
+    const liked = likes.includes(brotherName);
+    const disliked = dislikes.includes(brotherName);
 
-    if (likes.includes(brotherName)) {
+    if (liked) {
       // Like WITHOUT meeting: 0 points (no blind likes!)
       // Like after meeting: +2 points
       // Like after meeting + Comment: +5 points (reward for detailed feedback)
@@ -227,12 +238,24 @@ function calculateBrotherStats(brotherName, recruits, comments) {
         likePoints += hasComment ? 5 : 2;
       }
       // No points for blind likes (liking without meeting)
+
+      // First person in the likes array gets the first-to-like bonus.
+      if (likes[0] === brotherName) {
+        firstToLikeCount++;
+        firstLikeBonus += 8; // +8 points for being first to like
+      }
     }
 
-    if (dislikes.includes(brotherName)) {
+    if (disliked) {
       // Dislike alone: +5 points (valuable signal for Rho)
       // Dislike + Comment: +8 points (extra reward for explaining concerns)
       dislikePoints += hasComment ? 8 : 5;
+    }
+
+    // Count this recruit toward the comment-rate numerator iff the brother
+    // voted on it AND commented on it.
+    if ((liked || disliked) && hasComment) {
+      votedRecruitsWithComment++;
     }
   });
 
@@ -242,16 +265,19 @@ function calculateBrotherStats(brotherName, recruits, comments) {
   points += likePoints;                      // 0 for blind likes, +2 after meeting, +5 with comment
   points += dislikePoints;                   // +5 per dislike, +8 with comment
   points += commentsCount * 5;               // +5 per comment (base)
-  points += longCommentsCount * 5;           // +5 bonus for >50 char comments
-  points += veryLongCommentsCount * 10;      // +10 bonus for >100 char comments
+  points += longCommentsCount * 5;           // +5 bonus for >=50 char comments
+  points += veryLongCommentsCount * 10;      // +10 bonus for >=100 char comments (does not stack with +5)
   points += bidSuccessBonus;                 // +50 per bidded recruit you were primary contact for
   points += primaryContactCount * 50;        // +50 per recruit you're primary contact for
   points += firstMoverBonus;                 // +10 per first meet (sourcing bonus)
+  points += firstLikeBonus;                  // +8 per first like (early-endorsement bonus)
 
   // ENGAGEMENT QUALITY MULTIPLIER
-  // Rewards brothers who comment on a high percentage of their votes
+  // Rewards brothers who comment on a high percentage of their votes.
+  // Numerator: voted recruits the brother also commented on.
+  // Denominator: total votes (likes + dislikes).
   const totalVotes = recruitsLikedCount + recruitsDislikedCount;
-  const commentRate = totalVotes > 0 ? (commentsCount / totalVotes) : 0;
+  const commentRate = totalVotes > 0 ? (votedRecruitsWithComment / totalVotes) : 0;
 
   let qualityMultiplier = 1.0;
   if (commentRate >= 0.75) {
@@ -275,6 +301,8 @@ function calculateBrotherStats(brotherName, recruits, comments) {
     primaryContactCount,
     firstToMeetCount,
     firstMoverBonus,
+    firstToLikeCount,
+    firstLikeBonus,
     points
   };
 }
