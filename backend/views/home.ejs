@@ -297,26 +297,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .pull-refresh-indicator {
-            position: fixed;
-            top: 0.6rem;
-            left: 50%;
-            transform: translate(-50%, -140%);
-            opacity: 0;
-            font-size: 0.78rem;
-            color: #ffd700;
-            background: rgba(0, 0, 0, 0.88);
-            border: 1px solid rgba(255, 215, 0, 0.35);
-            border-radius: 999px;
-            padding: 0.35rem 0.7rem;
-            transition: transform 0.2s ease, opacity 0.2s ease;
-            z-index: 11900;
-            pointer-events: none;
-        }
-        .pull-refresh-indicator.visible {
-            transform: translate(-50%, 0);
-            opacity: 1;
-        }
     </style>
 </head>
 <body>
@@ -338,7 +318,6 @@
         <span id="reload-banner-text" class="reload-banner-text">Session may be stale.</span>
         <button style="padding:0.25rem 0.6rem;border-radius:999px;border:1px solid #ffd700;background:#ffd700;color:#1a1a1a;font-weight:600;cursor:pointer;" onclick="forceReloadPage()">Reload</button>
     </div>
-    <div id="pull-refresh-indicator" class="pull-refresh-indicator">Pull down to refresh</div>
     <div id="app-shell"></div>
     <script>
         const USER_EMAIL = '<%- email %>';
@@ -390,7 +369,7 @@
                         const err = new Error('Session expired or stale app instance');
                         err.code = 'AUTH_REQUIRED';
                         err.status = response.status;
-                        showReloadBanner('Session stale after deploy. Pull down or tap Reload.');
+                        showReloadBanner('Session stale after deploy. Tap Reload.');
                         throw err;
                     }
                     return response;
@@ -398,7 +377,7 @@
                     if (e.name === 'AbortError') {
                         const err = new Error('Request timed out');
                         err.code = 'REQUEST_TIMEOUT';
-                        showReloadBanner('Connection timed out. Pull down or tap Reload.');
+                        showReloadBanner('Connection timed out. Tap Reload.');
                         throw err;
                     }
                     throw e;
@@ -406,50 +385,6 @@
                     clearTimeout(timer);
                 }
             };
-        }
-
-        function initPullToRefresh() {
-            const indicator = document.getElementById('pull-refresh-indicator');
-            if (!indicator) return;
-
-            let startY = null;
-            let pullDistance = 0;
-            const threshold = 90;
-
-            const reset = () => {
-                startY = null;
-                pullDistance = 0;
-                indicator.classList.remove('visible');
-                indicator.textContent = 'Pull down to refresh';
-            };
-
-            window.addEventListener('touchstart', (e) => {
-                if (e.touches.length !== 1) return;
-                if (window.scrollY > 0) return;
-                const devModal = document.getElementById('dev-password-modal');
-                if (devModal && getComputedStyle(devModal).display !== 'none') return;
-                startY = e.touches[0].clientY;
-                pullDistance = 0;
-            }, { passive: true });
-
-            window.addEventListener('touchmove', (e) => {
-                if (startY === null) return;
-                const delta = e.touches[0].clientY - startY;
-                if (delta <= 0) return;
-                pullDistance = delta;
-                indicator.classList.add('visible');
-                indicator.textContent = delta >= threshold ? 'Release to refresh' : 'Pull down to refresh';
-            }, { passive: true });
-
-            window.addEventListener('touchend', () => {
-                if (pullDistance >= threshold) {
-                    forceReloadPage();
-                    return;
-                }
-                reset();
-            }, { passive: true });
-
-            window.addEventListener('touchcancel', reset, { passive: true });
         }
 
         // ----- Dev Password Logic -----
@@ -1171,7 +1106,6 @@
         }
         document.addEventListener('DOMContentLoaded', () => {
             installFetchGuard();
-            initPullToRefresh();
             document.body.addEventListener('click', handleNavigation);
             if (BASE_URL.includes('dev')) {
                 if (sessionStorage.getItem('DEV_PASSWORD_OK') === 'true') loadHomePageNormally();

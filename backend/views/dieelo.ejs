@@ -155,6 +155,37 @@
             box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
         }
 
+        /* Refresh Button (bottom-left) - rescans sheets without full page reload */
+        .die-refresh-btn {
+            position: fixed;
+            bottom: 2rem;
+            left: 2rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        .die-refresh-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: rotate(180deg);
+        }
+        .die-refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+            pointer-events: none;
+        }
+
         .reload-banner {
             position: fixed;
             top: 0.6rem;
@@ -179,27 +210,6 @@
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .pull-refresh-indicator {
-            position: fixed;
-            top: 0.6rem;
-            left: 50%;
-            transform: translate(-50%, -140%);
-            opacity: 0;
-            font-size: 0.78rem;
-            color: #ffd700;
-            background: rgba(0, 0, 0, 0.88);
-            border: 1px solid rgba(255, 215, 0, 0.35);
-            border-radius: 999px;
-            padding: 0.35rem 0.7rem;
-            transition: transform 0.2s ease, opacity 0.2s ease;
-            z-index: 2400;
-            pointer-events: none;
-        }
-        .pull-refresh-indicator.visible {
-            transform: translate(-50%, 0);
-            opacity: 1;
-        }
-
         /* Mobile Optimizations */
         @media (max-width: 600px) {
             .modal {
@@ -242,6 +252,13 @@
                 height: 50px;
                 font-size: 1.8rem;
             }
+            .die-refresh-btn {
+                bottom: 1.5rem;
+                left: 1.5rem;
+                width: 36px;
+                height: 36px;
+                font-size: 18px;
+            }
             .reload-banner {
                 width: calc(100vw - 1rem);
                 justify-content: space-between;
@@ -258,7 +275,6 @@
         <span id="reload-banner-text" class="reload-banner-text">Connection looks stale.</span>
         <button class="btn btn-small" style="padding:0.25rem 0.6rem;" onclick="forceReloadPage()">Reload</button>
     </div>
-    <div id="pull-refresh-indicator" class="pull-refresh-indicator">Pull down to refresh</div>
 
     <div class="container">
         <div class="header">
@@ -349,6 +365,7 @@
     </div>
 
     <button class="fab" onclick="openGameModal()">+</button>
+    <button class="die-refresh-btn" id="dieRefreshBtn" onclick="forceDieRefresh()" title="Refresh data">↻</button>
 
     <!-- Add/Edit Game Modal -->
     <div class="modal-overlay" id="game-modal">
@@ -653,57 +670,32 @@
             }
         }
 
-        function initPullToRefresh() {
-            const indicator = document.getElementById('pull-refresh-indicator');
-            if (!indicator) return;
-
-            let startY = null;
-            let pullDistance = 0;
-            const threshold = 90;
-
-            const reset = () => {
-                startY = null;
-                pullDistance = 0;
-                indicator.classList.remove('visible');
-                indicator.textContent = 'Pull down to refresh';
-            };
-
-            window.addEventListener('touchstart', (e) => {
-                if (e.touches.length !== 1) return;
-                if (window.scrollY > 0) return;
-                if (isAnyModalOpen()) return;
-                startY = e.touches[0].clientY;
-                pullDistance = 0;
-            }, { passive: true });
-
-            window.addEventListener('touchmove', (e) => {
-                if (startY === null) return;
-                const delta = e.touches[0].clientY - startY;
-                if (delta <= 0) return;
-                pullDistance = delta;
-                indicator.classList.add('visible');
-                indicator.textContent = delta >= threshold ? 'Release to refresh' : 'Pull down to refresh';
-            }, { passive: true });
-
-            window.addEventListener('touchend', () => {
-                if (pullDistance >= threshold) {
-                    forceReloadPage();
-                    return;
-                }
-                reset();
-            }, { passive: true });
-
-            window.addEventListener('touchcancel', reset, { passive: true });
-        }
-
         function handleApiError(error, fallbackMessage) {
             console.error(error);
             if (error && (error.code === 'AUTH_REQUIRED' || error.code === 'REQUEST_TIMEOUT')) {
-                showReloadBanner('Session or connection looks stale. Pull down or tap Reload.');
+                showReloadBanner('Session or connection looks stale. Tap Reload.');
                 return;
             }
             if (fallbackMessage) {
                 alert(error?.message || fallbackMessage);
+            }
+        }
+
+        // Triggered by the bottom-left refresh button.
+        // Re-fetches stats/games/disputes from the backend (which in turn rescans
+        // the sheets) without reloading the whole page. Keeps current modal state,
+        // scroll position, and any in-flight form data intact.
+        async function forceDieRefresh() {
+            const btn = document.getElementById('dieRefreshBtn');
+            if (btn) btn.classList.add('spinning');
+            console.log('Force refreshing die-elo data...');
+            try {
+                await loadData();
+                console.log('Data refreshed successfully');
+            } catch (e) {
+                console.error('Refresh failed:', e);
+            } finally {
+                if (btn) btn.classList.remove('spinning');
             }
         }
 
@@ -717,7 +709,7 @@
 
                 if (stats.error || stats.message) {
                     console.error('Stats error:', stats);
-                    showReloadBanner('Session may be stale. Pull down or tap Reload.');
+                    showReloadBanner('Session may be stale. Tap Reload.');
                     document.getElementById('profile-loader').style.display = 'none';
                     return;
                 }
@@ -1187,7 +1179,6 @@
 
 
         // Initial load
-        initPullToRefresh();
         loadData();
 
         if (window.pollInterval) clearInterval(window.pollInterval);
